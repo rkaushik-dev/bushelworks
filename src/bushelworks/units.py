@@ -32,10 +32,15 @@ class UnitError(ValueError):
     """Raised when a conversion is asked for something it cannot express."""
 
 
-def _quantize(value: Decimal, places: Decimal) -> Decimal:
+def quantize(value: Decimal, places: Decimal) -> Decimal:
+    """Round half up at a stated precision, with headroom for the intermediate.
+
+    Every rounding in the package goes through here so there is exactly one
+    answer to "which way does a half go", and it is up.
+    """
     with localcontext() as ctx:
         ctx.prec = 28
-        return value.quantize(places, rounding=ROUND_HALF_UP)
+        return Decimal(value).quantize(places, rounding=ROUND_HALF_UP)
 
 
 def to_pounds(value: Decimal | int | str) -> Decimal:
@@ -48,7 +53,7 @@ def to_pounds(value: Decimal | int | str) -> Decimal:
     weight = Decimal(value)
     if weight < 0:
         raise UnitError(f"weight cannot be negative: {weight}")
-    return _quantize(weight, POUND_PLACES)
+    return quantize(weight, POUND_PLACES)
 
 
 def net_pounds(gross: Decimal | int, tare: Decimal | int) -> Decimal:
@@ -71,24 +76,24 @@ def pounds_to_bushels(pounds: Decimal | int, test_weight_per_bushel: Decimal) ->
     std = Decimal(test_weight_per_bushel)
     if std <= 0:
         raise UnitError(f"standard test weight must be positive: {std}")
-    return _quantize(to_pounds(pounds) / std, BUSHEL_PLACES)
+    return quantize(to_pounds(pounds) / std, BUSHEL_PLACES)
 
 
 def bushels_to_pounds(bushels: Decimal, test_weight_per_bushel: Decimal) -> Decimal:
     std = Decimal(test_weight_per_bushel)
     if std <= 0:
         raise UnitError(f"standard test weight must be positive: {std}")
-    return _quantize(Decimal(bushels) * std, POUND_PLACES)
+    return quantize(Decimal(bushels) * std, POUND_PLACES)
 
 
 def pounds_to_cwt(pounds: Decimal | int) -> Decimal:
-    return _quantize(to_pounds(pounds) / POUNDS_PER_CWT, CWT_PLACES)
+    return quantize(to_pounds(pounds) / POUNDS_PER_CWT, CWT_PLACES)
 
 
 def pounds_to_tons(pounds: Decimal | int) -> Decimal:
-    return _quantize(to_pounds(pounds) / POUNDS_PER_TON, Decimal("0.001"))
+    return quantize(to_pounds(pounds) / POUNDS_PER_TON, Decimal("0.001"))
 
 
 def percent_of(value: Decimal, percent: Decimal, places: Decimal = BUSHEL_PLACES) -> Decimal:
     """Take a percentage of a quantity, rounded at the caller's precision."""
-    return _quantize(Decimal(value) * Decimal(percent) / Decimal("100"), places)
+    return quantize(Decimal(value) * Decimal(percent) / Decimal("100"), places)
