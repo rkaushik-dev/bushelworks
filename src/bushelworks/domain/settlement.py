@@ -26,6 +26,7 @@ from typing import Iterable, Sequence
 
 from ..money import allocate, amount, extend, total
 from .tickets import SplitShare
+from ..errors import ValidationError
 
 
 class LineKind(str, Enum):
@@ -66,7 +67,7 @@ REDUCING = frozenset(
 )
 
 
-class SettlementError(ValueError):
+class SettlementError(ValidationError):
     """Raised when a settlement cannot be assembled or does not balance."""
 
 

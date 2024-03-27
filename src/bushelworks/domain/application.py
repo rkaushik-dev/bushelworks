@@ -28,6 +28,7 @@ from typing import Iterable, Sequence
 
 from ..units import BUSHEL_PLACES, quantize
 from .contracts import ContractError, ContractStatus, PurchaseContract
+from ..errors import ValidationError
 
 
 class SelectionRule(str, Enum):
@@ -44,7 +45,7 @@ class OverDelivery(str, Enum):
     STORE = "store"
 
 
-class ApplicationError(ValueError):
+class ApplicationError(ValidationError):
     """Raised when a delivery cannot be applied as asked."""
 
 

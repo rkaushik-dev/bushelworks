@@ -18,17 +18,18 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Generic, Iterable, Sequence, TypeVar
+from ..errors import LookupFailure, ValidationError
 
 T = TypeVar("T")
 
 COMPANY_WIDE = "*"
 
 
-class NoScheduleInEffect(LookupError):
+class NoScheduleInEffect(LookupFailure):
     """Raised when nothing is filed for a key on the date asked about."""
 
 
-class OverlappingVersions(ValueError):
+class OverlappingVersions(ValidationError):
     """Raised when two versions of one key claim the same day."""
 
 

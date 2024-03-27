@@ -20,6 +20,7 @@ from typing import Iterable, Mapping
 
 from ..money import PRICE_PLACES, price
 from ..units import quantize
+from ..errors import ValidationError
 
 MONTH_CODES: Mapping[str, int] = {
     "F": 1,
@@ -44,7 +45,7 @@ DELIVERY_MONTHS: Mapping[str, tuple[str, ...]] = {
 }
 
 
-class PricingError(ValueError):
+class PricingError(ValidationError):
     """Raised when a price cannot be assembled from what is on file."""
 
 

@@ -27,6 +27,7 @@ from typing import Sequence
 
 from ..money import PRICE_PLACES, amount, extend
 from ..units import BUSHEL_PLACES, quantize
+from ..errors import ValidationError
 
 
 class ShrinkMethod(str, Enum):
@@ -35,7 +36,7 @@ class ShrinkMethod(str, Enum):
     NONE = "none"
 
 
-class MoistureError(ValueError):
+class MoistureError(ValidationError):
     """Raised when a moisture reading cannot be shrunk as configured."""
 
 

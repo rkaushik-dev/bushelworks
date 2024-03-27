@@ -29,6 +29,7 @@ from typing import Mapping, Sequence
 from ..money import PRICE_PLACES, extend
 from ..units import quantize
 from .commodity import Factor, FactorDirection, FACTOR_DIRECTION
+from ..errors import ValidationError
 
 
 class DiscountMode(str, Enum):
@@ -37,7 +38,7 @@ class DiscountMode(str, Enum):
     FLAT = "flat"
 
 
-class ScheduleError(ValueError):
+class ScheduleError(ValidationError):
     """Raised when a schedule is not usable as written."""
 
 

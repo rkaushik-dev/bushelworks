@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 from typing import Mapping
+from ..errors import LookupFailure
 
 
 class PriceUnit(str, Enum):
@@ -71,7 +72,7 @@ FACTOR_DIRECTION: Mapping[Factor, FactorDirection] = {
 }
 
 
-class UnknownCommodity(KeyError):
+class UnknownCommodity(LookupFailure):
     """Raised when a ticket names a commodity the house does not buy."""
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from typing import Final
+from .errors import ValidationError
 
 # Pounds. Truck scales in the US report whole pounds, and every weight that
 # enters this package has already been rounded to one by the scale head.
@@ -28,7 +29,7 @@ POUNDS_PER_CWT: Final = Decimal("100")
 POUNDS_PER_TON: Final = Decimal("2000")
 
 
-class UnitError(ValueError):
+class UnitError(ValidationError):
     """Raised when a conversion is asked for something it cannot express."""
 
 

@@ -23,6 +23,7 @@ from enum import Enum
 
 from ..money import amount, extend
 from ..units import BUSHEL_PLACES, quantize
+from ..errors import ValidationError
 
 DAYS_PER_MONTH = Decimal("30")
 
@@ -33,7 +34,7 @@ class AccrualMethod(str, Enum):
     CALENDAR = "calendar"
 
 
-class StorageError(ValueError):
+class StorageError(ValidationError):
     """Raised when a storage charge cannot be worked out as configured."""
 
 

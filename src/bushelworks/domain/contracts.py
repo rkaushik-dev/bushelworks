@@ -24,6 +24,7 @@ from enum import Enum
 from ..money import PRICE_PLACES, price
 from ..units import quantize
 from .pricing import FuturesMonth, PricingError
+from ..errors import ValidationError
 
 
 class ContractKind(str, Enum):
@@ -41,7 +42,7 @@ class ContractStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class ContractError(ValueError):
+class ContractError(ValidationError):
     """Raised when a contract cannot stand as written or as amended."""
 
 

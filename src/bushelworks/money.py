@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from typing import Final, Iterable, Sequence
+from .errors import ValidationError
 
 PRICE_PLACES: Final = Decimal("0.0001")
 AMOUNT_PLACES: Final = Decimal("0.01")
@@ -21,7 +22,7 @@ ZERO_AMOUNT: Final = Decimal("0.00")
 ZERO_PRICE: Final = Decimal("0.0000")
 
 
-class MoneyError(ValueError):
+class MoneyError(ValidationError):
     """Raised for a money value that cannot be represented or allocated."""
 
 

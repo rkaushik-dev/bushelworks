@@ -20,6 +20,7 @@ from typing import Mapping, Sequence
 from ..units import net_pounds, percent_of, pounds_to_bushels, quantize
 from ..units import BUSHEL_PLACES, POUND_PLACES
 from .commodity import Commodity, Factor
+from ..errors import ValidationError
 
 
 class Disposition(str, Enum):
@@ -40,7 +41,7 @@ class SplitRole(str, Enum):
     LIENHOLDER = "lienholder"
 
 
-class TicketError(ValueError):
+class TicketError(ValidationError):
     """Raised when a ticket cannot stand as written."""
 
 

@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
 from .commodity import Commodity, Factor, FactorDirection, FACTOR_DIRECTION
+from ..errors import LookupFailure, ValidationError
 
 
 class NumericalGrade(str, Enum):
@@ -49,11 +50,11 @@ _GRADE_RANK: Mapping[NumericalGrade, int] = {
 }
 
 
-class IncompleteSample(ValueError):
+class IncompleteSample(ValidationError):
     """Raised when a required factor was never recorded on the sample."""
 
 
-class NoGradeTable(KeyError):
+class NoGradeTable(LookupFailure):
     """Raised when a commodity has no grade ladder loaded."""
 
 

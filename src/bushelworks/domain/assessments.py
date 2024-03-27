@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Iterable, Sequence
 
 from ..money import amount, extend, total
+from ..errors import ValidationError
 
 
 class AssessmentBasis(str, Enum):
@@ -34,7 +35,7 @@ class ValueBasis(str, Enum):
     NET_OF_DISCOUNTS = "net_of_discounts"
 
 
-class AssessmentError(ValueError):
+class AssessmentError(ValidationError):
     """Raised when an assessment cannot be worked out as configured."""
 
 
