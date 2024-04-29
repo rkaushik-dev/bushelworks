@@ -15,16 +15,18 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, PERCENT, PRICE
+from ..base import Base, PERCENT, PRICE
 
 
-def _now() -> datetime:
+def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
@@ -32,10 +34,10 @@ class TimestampMixin:
     """Every row records when it was written and when it last moved."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_now, nullable=False
+        DateTime(timezone=True), default=utc_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_now, onupdate=_now, nullable=False
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
 
 
@@ -87,7 +89,7 @@ class Location(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     state_code: Mapped[str] = mapped_column(String(2), nullable=False)
     warehouse_licence: Mapped[str | None] = mapped_column(String(24))
-    licensed_capacity: Mapped[int | None] = mapped_column()
+    licensed_capacity: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     def __str__(self) -> str:
@@ -137,18 +139,8 @@ class SplitAgreement(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     farm_code: Mapped[str] = mapped_column(String(24), nullable=False)
-    party_id: Mapped[int] = mapped_column(nullable=False)
+    party_id: Mapped[int] = mapped_column(ForeignKey("party.id"), nullable=False)
     percent: Mapped[float] = mapped_column(PERCENT, nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="owner")
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)
     effective_to: Mapped[date | None] = mapped_column(Date)
-
-
-__all__ = [
-    "CommodityRow",
-    "Location",
-    "Party",
-    "SplitAgreement",
-    "TimestampMixin",
-    "relationship",
-]
