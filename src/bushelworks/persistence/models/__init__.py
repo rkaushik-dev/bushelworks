@@ -7,6 +7,7 @@ modules, and everything still imports from ``bushelworks.persistence.models``.
 
 from .reference import (
     CommodityRow,
+    CounterRow,
     Location,
     Party,
     SplitAgreement,
@@ -28,6 +29,7 @@ from .trading import (
 __all__ = [
     "ApplicationRow",
     "CommodityRow",
+    "CounterRow",
     "ContractRow",
     "Location",
     "Party",

@@ -120,6 +120,27 @@ class CommodityRow(Base, TimestampMixin):
         return f"{self.code} {self.name}"
 
 
+class CounterRow(Base):
+    """One gapless document counter per series per year.
+
+    Locked for the length of the allocating transaction rather than read and
+    incremented, so a rollback puts the number back instead of burning it. A
+    database sequence would be faster and would leave holes, and the state
+    auditor counts settlement numbers.
+    """
+
+    __tablename__ = "document_counter"
+    __table_args__ = (
+        UniqueConstraint("series", "year", name="uq_document_counter_series"),
+        CheckConstraint("next_value >= 1", name="next_value_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    series: Mapped[str] = mapped_column(String(16), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
 class SplitAgreement(Base, TimestampMixin):
     """A standing split between a landlord and a tenant on one farm.
 
