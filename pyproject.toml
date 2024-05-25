@@ -12,11 +12,15 @@ license = { text = "Proprietary" }
 authors = [{ name = "rkaushik-dev" }]
 dependencies = [
   "SQLAlchemy==2.0.25",
+  "fastapi==0.111.0",
+  "pydantic==2.7.1",
+  "uvicorn[standard]==0.29.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest==7.4.4",
+  "httpx==0.27.0",
 ]
 
 [tool.setuptools.packages.find]

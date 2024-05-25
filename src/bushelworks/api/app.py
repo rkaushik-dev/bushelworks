@@ -1,0 +1,100 @@
+"""Application factory.
+
+A factory rather than a module level ``app`` so the tests can build one against
+an in memory database without touching the environment, and so two houses can
+run in one process during a merger, which has already happened once.
+"""
+
+from __future__ import annotations
+
+import uuid
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
+from fastapi import FastAPI, Request
+from sqlalchemy.orm import Session, sessionmaker
+
+from ..config import Settings, load_settings
+from ..persistence.base import create_all, engine_for, session_factory
+from .errors import install_error_handlers
+
+API_TITLE = "bushelworks"
+API_DESCRIPTION = (
+    "Scale house capture and settlement for country grain elevators. "
+    "Every quantity is exact decimal and every rate is resolved as of the "
+    "ticket date rather than today."
+)
+
+
+def create_app(
+    settings: Settings | None = None,
+    factory: sessionmaker[Session] | None = None,
+    create_schema: bool = False,
+) -> FastAPI:
+    resolved = settings or load_settings()
+
+    if factory is None:
+        engine = engine_for(resolved.database_url, echo=resolved.echo_sql)
+        if create_schema:
+            create_all(engine)
+        factory = session_factory(engine)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        factory.kw["bind"].dispose()
+
+    app = FastAPI(
+        title=API_TITLE,
+        description=API_DESCRIPTION,
+        version=_version(),
+        lifespan=lifespan,
+    )
+    app.state.settings = resolved
+    app.state.session_factory = factory
+
+    install_error_handlers(app)
+    _install_request_id(app)
+    _install_health(app)
+    return app
+
+
+def _version() -> str:
+    from .. import __version__
+
+    return __version__
+
+
+def _install_request_id(app: FastAPI) -> None:
+    """Stamp every request so a log line and an error body can be tied together.
+
+    The scale house calls with a problem and reads the id off the screen. It is
+    the only thing that makes an error report actionable at harvest, when there
+    are nine hundred requests an hour and they all look the same.
+    """
+
+    @app.middleware("http")
+    async def _stamp(request: Request, call_next):  # type: ignore[no-untyped-def]
+        incoming = request.headers.get("x-request-id")
+        request_id = incoming or uuid.uuid4().hex[:16]
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["x-request-id"] = request_id
+        return response
+
+
+def _install_health(app: FastAPI) -> None:
+    @app.get("/health", tags=["ops"])
+    def health() -> dict[str, str]:
+        """Liveness. Says nothing about the database on purpose."""
+        return {"status": "ok", "version": app.version}
+
+    @app.get("/ready", tags=["ops"])
+    def ready() -> dict[str, str]:
+        """Readiness. Opens a session and runs the cheapest statement there is."""
+        from sqlalchemy import text
+
+        factory: sessionmaker[Session] = app.state.session_factory
+        with factory() as session:
+            session.execute(text("SELECT 1"))
+        return {"status": "ready"}
