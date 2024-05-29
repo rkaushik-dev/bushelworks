@@ -27,7 +27,14 @@ from ..errors import (
     ValidationError,
 )
 
+def _not_authorised() -> type[BushelworksError]:
+    from .deps import NotAuthorised
+
+    return NotAuthorised
+
+
 STATUS_FOR: list[tuple[type[BushelworksError], int]] = [
+    (_not_authorised(), 401),
     (LookupFailure, 404),
     (ConflictError, 409),
     (ValidationError, 422),
