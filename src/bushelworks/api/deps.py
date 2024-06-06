@@ -12,8 +12,10 @@ from typing import Iterator
 from fastapi import Depends, Header, Request
 
 from ..config import Settings
+from ..domain.rulebook import RuleBook
 from ..errors import BushelworksError
 from ..persistence.unitofwork import UnitOfWork
+from ..services.houses import house_rulebook
 
 
 class NotAuthorised(BushelworksError):
@@ -24,6 +26,20 @@ class NotAuthorised(BushelworksError):
 
 def get_settings(request: Request) -> Settings:
     return request.app.state.settings
+
+
+def get_rules(request: Request) -> RuleBook:
+    """The house rule book, built once at start up and shared.
+
+    It is immutable in practice: nothing in a request path files a schedule, and
+    a schedule change is a deploy. Rebuilding it per request would cost nothing
+    and would hide that fact.
+    """
+    book = getattr(request.app.state, "rules", None)
+    if book is None:
+        book = house_rulebook(request.app.state.settings)
+        request.app.state.rules = book
+    return book
 
 
 def get_uow(request: Request) -> Iterator[UnitOfWork]:

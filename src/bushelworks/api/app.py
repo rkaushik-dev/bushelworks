@@ -56,6 +56,10 @@ def create_app(
     install_error_handlers(app)
     _install_request_id(app)
     _install_health(app)
+
+    from .routers import tickets_router
+
+    app.include_router(tickets_router)
     return app
 
 
