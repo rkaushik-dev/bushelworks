@@ -44,6 +44,18 @@ def test_a_lookup_failure_reads_cleanly_rather_than_quoted():
     assert str(err) == "no such producer: HOLLIS"
 
 
+def test_a_subclass_that_names_no_code_gets_one_from_its_name():
+    assert ContractError("x").code == "contract_error"
+    assert TicketError("x").code == "ticket_error"
+    assert UnknownCommodity("x").code == "unknown_commodity"
+    assert NoScheduleInEffect("x").code == "no_schedule_in_effect"
+
+
+def test_an_explicit_code_survives_the_derivation():
+    assert LookupFailure("x").code == "not_found"
+    assert SettlementError("x").code == "settlement_error"
+
+
 def test_errors_carry_a_stable_code():
     assert ValidationError("bad").code == "validation_error"
     assert LookupFailure("gone").code == "not_found"

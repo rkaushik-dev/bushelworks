@@ -14,10 +14,32 @@ neither has to match on message text.
 from __future__ import annotations
 
 
+def _default_code(name: str) -> str:
+    """Turn ``ContractError`` into ``contract_error``."""
+    out: list[str] = []
+    for index, char in enumerate(name):
+        if char.isupper() and index:
+            out.append("_")
+        out.append(char.lower())
+    return "".join(out)
+
+
 class BushelworksError(Exception):
-    """Base for every error raised on purpose."""
+    """Base for every error raised on purpose.
+
+    A subclass that does not name a code gets one derived from its class name,
+    so a new error is never silently reported to the API as its parent's code.
+    That was happening: every domain error came back as ``validation_error``
+    because none of them set one, and the caller could not tell a bad contract
+    from a bad ticket.
+    """
 
     code = "bushelworks_error"
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if "code" not in cls.__dict__:
+            cls.code = _default_code(cls.__name__)
 
     def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
