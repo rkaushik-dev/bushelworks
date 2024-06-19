@@ -92,6 +92,50 @@ def test_the_unique_constraint_on_ticket_number_is_per_location(migrated):
     assert by_name["uq_scale_ticket_location_code"] == ["location_code", "ticket_number"]
 
 
+def test_the_second_migration_adds_the_trading_tables(migrated):
+    assert {
+        "purchase_contract",
+        "contract_application",
+        "settlement",
+        "settlement_line",
+        "settlement_ticket",
+    } <= table_names(migrated)
+
+
+def test_every_model_table_exists_in_the_migrations(migrated, built):
+    assert table_names(built) == table_names(migrated)
+
+
+def test_every_table_has_the_same_columns_either_way(migrated, built):
+    for table in sorted(table_names(built)):
+        assert column_names(migrated, table) == column_names(built, table), table
+
+
+def test_the_contract_columns_match_the_model(migrated, built):
+    assert column_names(migrated, "purchase_contract") == column_names(
+        built, "purchase_contract"
+    )
+
+
+def test_the_settlement_line_columns_match_the_model(migrated, built):
+    assert column_names(migrated, "settlement_line") == column_names(
+        built, "settlement_line"
+    )
+
+
+def test_stepping_back_one_revision_drops_only_the_trading_tables(
+    tmp_path, monkeypatch
+):
+    url = f"sqlite+pysqlite:///{tmp_path / 'stepped.sqlite3'}"
+    monkeypatch.setenv("BUSHELWORKS_DATABASE_URL", url)
+    config = alembic_config(url)
+    command.upgrade(config, "head")
+    command.downgrade(config, "8c1b4f0a2d31")
+    names = table_names(engine_for(url))
+    assert "scale_ticket" in names
+    assert "purchase_contract" not in names
+
+
 def test_the_migration_reverses(tmp_path, monkeypatch):
     url = f"sqlite+pysqlite:///{tmp_path / 'reversed.sqlite3'}"
     monkeypatch.setenv("BUSHELWORKS_DATABASE_URL", url)
