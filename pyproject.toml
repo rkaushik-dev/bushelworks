@@ -15,7 +15,12 @@ dependencies = [
   "fastapi==0.111.0",
   "pydantic==2.7.1",
   "uvicorn[standard]==0.29.0",
+  "alembic==1.13.1",
+  "click==8.1.7",
 ]
+
+[project.scripts]
+bushelworks = "bushelworks.cli.main:main"
 
 [project.optional-dependencies]
 dev = [
