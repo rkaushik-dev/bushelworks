@@ -11,16 +11,22 @@ Corrections are made by voiding and reissuing, never by amendment.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import Mapping, Sequence
 
-from ..units import net_pounds, percent_of, pounds_to_bushels, quantize
-from ..units import BUSHEL_PLACES, POUND_PLACES
-from .commodity import Commodity, Factor
 from ..errors import ValidationError
+from ..units import (
+    BUSHEL_PLACES,
+    POUND_PLACES,
+    net_pounds,
+    percent_of,
+    pounds_to_bushels,
+    quantize,
+)
+from .commodity import Commodity, Factor
 
 
 class Disposition(str, Enum):
@@ -157,7 +163,7 @@ class ScaleTicket:
             )
         return value
 
-    def void(self, reason: str) -> "ScaleTicket":
+    def void(self, reason: str) -> ScaleTicket:
         """Return the voided twin of this ticket.
 
         Voiding does not erase anything. The original stays in the book and the

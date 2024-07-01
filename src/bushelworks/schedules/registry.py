@@ -15,9 +15,11 @@ is the rule the grain accountants use and it is the one that surprises people.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
-from typing import Generic, Iterable, Sequence, TypeVar
+from typing import Generic, TypeVar
+
 from ..errors import LookupFailure, ValidationError
 
 T = TypeVar("T")

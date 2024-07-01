@@ -12,8 +12,8 @@ instead of expensive.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from types import TracebackType
-from typing import Callable
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -38,7 +38,7 @@ class UnitOfWork:
         self.parties: PartyRepository | None = None
         self._committed = False
 
-    def __enter__(self) -> "UnitOfWork":
+    def __enter__(self) -> UnitOfWork:
         if self.session is not None:
             raise ConflictError("this unit of work is already open")
         session = self._factory()

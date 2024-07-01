@@ -11,8 +11,10 @@ the middle drifts, and the drift lands on the producer.
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP, localcontext
-from typing import Final, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from decimal import ROUND_HALF_UP, Decimal, localcontext
+from typing import Final
+
 from .errors import ValidationError
 
 PRICE_PLACES: Final = Decimal("0.0001")

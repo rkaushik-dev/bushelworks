@@ -18,8 +18,8 @@ from ...services.intake import receive
 from ...services.scalehouse import record_load
 from ..deps import get_rules, get_uow, paging, require_api_key
 from ..schemas import (
-    GradeOut,
     GradedLoadOut,
+    GradeOut,
     Page,
     SampleReading,
     SplitIn,

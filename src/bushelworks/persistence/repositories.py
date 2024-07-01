@@ -11,9 +11,9 @@ commits on its own makes a two step operation impossible to undo.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -183,7 +183,7 @@ class ContractRepository:
         """
         row = self.row(contract.number)
         updated = contract_to_row(contract)
-        for column in ContractRow.__table__.columns.keys():
+        for column in [c.name for c in ContractRow.__table__.columns]:
             # The bookkeeping columns belong to the row, not to the contract.
             # Copying them across would blank updated_at, which is set by the
             # ORM on flush and is null on an object that has never been added.

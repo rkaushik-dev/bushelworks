@@ -41,7 +41,7 @@ class DocumentNumber:
         return f"{self.prefix}-{self.year}-{self.sequence:04d}"
 
     @classmethod
-    def parse(cls, text: str) -> "DocumentNumber":
+    def parse(cls, text: str) -> DocumentNumber:
         parts = text.split("-")
         if len(parts) != 3:
             raise NumberingError(f"{text!r} is not a document number")
@@ -54,7 +54,7 @@ class DocumentNumber:
             raise NumberingError(f"{text!r} has no sequence")
         return cls(prefix=prefix, year=int(year), sequence=int(sequence))
 
-    def next(self) -> "DocumentNumber":
+    def next(self) -> DocumentNumber:
         return DocumentNumber(self.prefix, self.year, self.sequence + 1)
 
 

@@ -12,9 +12,9 @@ the manager says it closes.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Iterable
 
 from ..errors import ConfigurationError, ValidationError
 

@@ -13,13 +13,13 @@ give one.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Iterable, Mapping, Sequence
 
-from .commodity import Commodity, Factor, FactorDirection, FACTOR_DIRECTION
 from ..errors import LookupFailure, ValidationError
+from .commodity import FACTOR_DIRECTION, Commodity, Factor, FactorDirection
 
 
 class NumericalGrade(str, Enum):
@@ -36,7 +36,7 @@ class NumericalGrade(str, Enum):
     def rank(self) -> int:
         return _GRADE_RANK[self]
 
-    def is_better_than(self, other: "NumericalGrade") -> bool:
+    def is_better_than(self, other: NumericalGrade) -> bool:
         return self.rank < other.rank
 
 

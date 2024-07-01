@@ -12,9 +12,10 @@ to ring somebody about.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable
+from typing import Any
 
 import click
 

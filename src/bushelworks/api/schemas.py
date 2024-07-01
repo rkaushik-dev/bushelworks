@@ -22,7 +22,7 @@ from ..domain.tickets import Disposition, SplitRole
 def _as_decimal(value: Any) -> Decimal:
     if isinstance(value, Decimal):
         return value
-    if isinstance(value, (int, str)):
+    if isinstance(value, int | str):
         try:
             return Decimal(str(value))
         except InvalidOperation as exc:

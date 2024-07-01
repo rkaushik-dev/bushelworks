@@ -12,15 +12,14 @@ the mistake that puts December before July.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from enum import Enum
-from typing import Iterable, Mapping
 
+from ..errors import ValidationError
 from ..money import PRICE_PLACES, price
 from ..units import quantize
-from ..errors import ValidationError
 
 MONTH_CODES: Mapping[str, int] = {
     "F": 1,
@@ -89,7 +88,7 @@ class FuturesMonth:
         """
         return date(self.year, self.month_number, 1)
 
-    def is_before(self, other: "FuturesMonth") -> bool:
+    def is_before(self, other: FuturesMonth) -> bool:
         return self.sort_key < other.sort_key
 
 
@@ -152,7 +151,7 @@ class CashBid:
         raw = Decimal(self.futures) + Decimal(self.basis)
         return price(raw if raw > 0 else Decimal("0"))
 
-    def with_basis(self, basis: Decimal) -> "CashBid":
+    def with_basis(self, basis: Decimal) -> CashBid:
         return CashBid(
             commodity_code=self.commodity_code,
             month=self.month,

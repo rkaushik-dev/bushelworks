@@ -10,10 +10,10 @@ Everything here takes a unit of work and writes inside it. Nothing commits.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from ..domain import commodity as cm
 from ..domain.application import (

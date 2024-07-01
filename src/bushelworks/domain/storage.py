@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal, ROUND_CEILING
+from decimal import ROUND_CEILING, Decimal
 from enum import Enum
 
+from ..errors import ValidationError
 from ..money import amount, extend
 from ..units import BUSHEL_PLACES, quantize
-from ..errors import ValidationError
 
 DAYS_PER_MONTH = Decimal("30")
 
@@ -135,7 +135,7 @@ class StorageLot:
     def is_empty(self) -> bool:
         return self.open_bushels == 0
 
-    def withdraw(self, bushels: Decimal) -> "StorageLot":
+    def withdraw(self, bushels: Decimal) -> StorageLot:
         from dataclasses import replace
 
         wanted = quantize(Decimal(bushels), BUSHEL_PLACES)

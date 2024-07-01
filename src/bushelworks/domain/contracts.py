@@ -21,10 +21,10 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 
+from ..errors import ValidationError
 from ..money import PRICE_PLACES, price
 from ..units import quantize
 from .pricing import FuturesMonth, PricingError
-from ..errors import ValidationError
 
 
 class ContractKind(str, Enum):
@@ -147,7 +147,7 @@ class PurchaseContract:
     def accepts_delivery_on(self, day: date) -> bool:
         return self.status is ContractStatus.OPEN and self.window.contains(day)
 
-    def set_basis(self, basis: Decimal, on: date) -> "PurchaseContract":
+    def set_basis(self, basis: Decimal, on: date) -> PurchaseContract:
         """Fix the basis half of an HTA."""
         if self.kind is not ContractKind.HTA:
             raise ContractError(f"{self.number}: only a hedge to arrive sets a basis")
@@ -157,7 +157,7 @@ class PurchaseContract:
             raise ContractError(f"{self.number}: basis cannot be set after the window")
         return replace(self, basis=price(basis))
 
-    def set_futures(self, futures: Decimal, on: date) -> "PurchaseContract":
+    def set_futures(self, futures: Decimal, on: date) -> PurchaseContract:
         """Fix the futures half of a basis contract."""
         if self.kind is not ContractKind.BASIS:
             raise ContractError(f"{self.number}: only a basis contract sets futures")
@@ -169,7 +169,7 @@ class PurchaseContract:
             raise ContractError(f"{self.number}: futures cannot be set after the window")
         return replace(self, futures_price=price(futures))
 
-    def roll_to(self, month: FuturesMonth, spread: Decimal) -> "PurchaseContract":
+    def roll_to(self, month: FuturesMonth, spread: Decimal) -> PurchaseContract:
         """Move an unpriced futures half to a later month, paying the spread.
 
         Rolling is only legal forward. A producer who wants to roll back is
@@ -190,7 +190,7 @@ class PurchaseContract:
             ),
         )
 
-    def cancel(self) -> "PurchaseContract":
+    def cancel(self) -> PurchaseContract:
         if self.status is not ContractStatus.OPEN:
             raise ContractError(f"{self.number}: only an open contract can be cancelled")
         return replace(self, status=ContractStatus.CANCELLED)

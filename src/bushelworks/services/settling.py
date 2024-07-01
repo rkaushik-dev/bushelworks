@@ -17,11 +17,11 @@ policy, not an arithmetic fact.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import Sequence
 
 from ..domain.rulebook import RuleBook
 from ..domain.settlement import LineKind, Settlement, SettlementBuilder

@@ -18,15 +18,15 @@ The order this module enforces, and the reason each step is where it is:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import Iterable, Sequence
 
+from ..errors import ValidationError
 from ..money import allocate, amount, extend, total
 from .tickets import SplitShare
-from ..errors import ValidationError
 
 
 class LineKind(str, Enum):
@@ -162,14 +162,14 @@ class SettlementBuilder:
         self._tickets: list[str] = []
         self._contracts: list[str] = []
 
-    def add(self, line: SettlementLine) -> "SettlementBuilder":
+    def add(self, line: SettlementLine) -> SettlementBuilder:
         if line.dollars != 0:
             self._lines.append(line)
         return self
 
     def add_gross(
         self, code: str, description: str, bushels: Decimal, unit_price: Decimal
-    ) -> "SettlementBuilder":
+    ) -> SettlementBuilder:
         return self.add(
             SettlementLine(
                 kind=LineKind.GROSS,
@@ -189,7 +189,7 @@ class SettlementBuilder:
         dollars: Decimal,
         quantity: Decimal | None = None,
         rate: Decimal | None = None,
-    ) -> "SettlementBuilder":
+    ) -> SettlementBuilder:
         return self.add(
             SettlementLine(
                 kind=kind,
@@ -201,12 +201,12 @@ class SettlementBuilder:
             )
         )
 
-    def reference_ticket(self, ticket_number: str) -> "SettlementBuilder":
+    def reference_ticket(self, ticket_number: str) -> SettlementBuilder:
         if ticket_number not in self._tickets:
             self._tickets.append(ticket_number)
         return self
 
-    def reference_contract(self, contract_number: str) -> "SettlementBuilder":
+    def reference_contract(self, contract_number: str) -> SettlementBuilder:
         if contract_number not in self._contracts:
             self._contracts.append(contract_number)
         return self
@@ -256,7 +256,7 @@ def split_settlement(
     party_totals = {share.party_id: Decimal("0.00") for share in shares}
     for line in settlement.lines:
         parts = allocate(line.signed, weights)
-        for share, part in zip(shares, parts):
+        for share, part in zip(shares, parts, strict=False):
             party_totals[share.party_id] = amount(party_totals[share.party_id] + part)
     return party_totals
 

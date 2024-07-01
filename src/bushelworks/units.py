@@ -10,8 +10,9 @@ disagree with the elevator's ledger, so all of it happens here and nowhere else.
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP, localcontext
+from decimal import ROUND_HALF_UP, Decimal, localcontext
 from typing import Final
+
 from .errors import ValidationError
 
 # Pounds. Truck scales in the US report whole pounds, and every weight that

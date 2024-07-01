@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..base import Base, BUSHELS, MONEY, PERCENT, PRICE
+from ..base import BUSHELS, MONEY, PERCENT, PRICE, Base
 from .reference import TimestampMixin
 
 
@@ -67,7 +67,7 @@ class ContractRow(Base, TimestampMixin):
     )
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="open")
 
-    applications: Mapped[list["ApplicationRow"]] = relationship(
+    applications: Mapped[list[ApplicationRow]] = relationship(
         back_populates="contract", lazy="selectin"
     )
 
@@ -121,7 +121,7 @@ class SettlementRow(Base, TimestampMixin):
     cheque_number: Mapped[str | None] = mapped_column(String(16))
     voided: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    lines: Mapped[list["SettlementLineRow"]] = relationship(
+    lines: Mapped[list[SettlementLineRow]] = relationship(
         back_populates="settlement",
         cascade="all, delete-orphan",
         lazy="selectin",

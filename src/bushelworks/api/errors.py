@@ -27,6 +27,7 @@ from ..errors import (
     ValidationError,
 )
 
+
 def _not_authorised() -> type[BushelworksError]:
     from .deps import NotAuthorised
 

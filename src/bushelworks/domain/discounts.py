@@ -21,15 +21,15 @@ when they read the table.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_CEILING
+from decimal import ROUND_CEILING, Decimal
 from enum import Enum
-from typing import Mapping, Sequence
 
+from ..errors import ValidationError
 from ..money import PRICE_PLACES, extend
 from ..units import quantize
-from .commodity import Factor, FactorDirection, FACTOR_DIRECTION
-from ..errors import ValidationError
+from .commodity import FACTOR_DIRECTION, Factor, FactorDirection
 
 
 class DiscountMode(str, Enum):

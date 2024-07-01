@@ -9,8 +9,8 @@ learn a new one.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from decimal import Decimal
-from typing import Iterable, Sequence
 
 from ..domain.settlement import LineKind, Settlement
 from ..money import format_amount

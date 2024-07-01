@@ -20,15 +20,15 @@ fills first and generous about what happens to the overage.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import Iterable, Sequence
 
+from ..errors import ValidationError
 from ..units import BUSHEL_PLACES, quantize
 from .contracts import ContractError, ContractStatus, PurchaseContract
-from ..errors import ValidationError
 
 
 class SelectionRule(str, Enum):

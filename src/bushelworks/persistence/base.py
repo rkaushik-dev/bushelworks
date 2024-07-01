@@ -15,8 +15,9 @@ that only shows up on the biggest loads.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from decimal import Decimal
-from typing import Any, Iterator
+from typing import Any
 
 from sqlalchemy import Numeric, create_engine, event
 from sqlalchemy.engine import Engine

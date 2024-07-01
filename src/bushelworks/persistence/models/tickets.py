@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..base import Base, BUSHELS, PERCENT, POUNDS
+from ..base import BUSHELS, PERCENT, POUNDS, Base
 from .reference import TimestampMixin
 
 
@@ -68,12 +68,12 @@ class ScaleTicketRow(Base, TimestampMixin):
     voided: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     settled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    samples: Mapped[list["SampleRow"]] = relationship(
+    samples: Mapped[list[SampleRow]] = relationship(
         back_populates="ticket",
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    splits: Mapped[list["TicketSplitRow"]] = relationship(
+    splits: Mapped[list[TicketSplitRow]] = relationship(
         back_populates="ticket",
         cascade="all, delete-orphan",
         lazy="selectin",

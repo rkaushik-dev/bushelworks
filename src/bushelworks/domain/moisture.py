@@ -20,14 +20,14 @@ money away, and a load can be subject to one, both or neither.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Sequence
 
+from ..errors import ValidationError
 from ..money import PRICE_PLACES, amount, extend
 from ..units import BUSHEL_PLACES, quantize
-from ..errors import ValidationError
 
 
 class ShrinkMethod(str, Enum):

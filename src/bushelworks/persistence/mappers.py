@@ -20,7 +20,7 @@ from ..domain.contracts import (
     DeliveryWindow,
     PurchaseContract,
 )
-from ..domain.pricing import FuturesMonth, MONTH_CODES
+from ..domain.pricing import MONTH_CODES, FuturesMonth
 from ..domain.settlement import LineKind, Settlement, SettlementLine
 from ..domain.tickets import Disposition, ScaleTicket, SplitRole, SplitShare
 from ..errors import ValidationError

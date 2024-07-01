@@ -8,8 +8,8 @@ run in one process during a merger, which has already happened once.
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from sqlalchemy.orm import Session, sessionmaker

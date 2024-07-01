@@ -11,10 +11,11 @@ does not change the shape of the row.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
-from typing import Mapping
+
 from ..errors import LookupFailure
 
 

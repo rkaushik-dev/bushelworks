@@ -18,10 +18,10 @@ a rally with no idea it is there.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Iterable
 
 from ..errors import ValidationError
 from ..units import BUSHEL_PLACES, quantize
@@ -97,7 +97,7 @@ class PositionLine:
             BUSHEL_PLACES,
         )
 
-    def combine(self, other: "PositionLine") -> "PositionLine":
+    def combine(self, other: PositionLine) -> PositionLine:
         """Add two lines for the same commodity on the same day."""
         if self.commodity_code != other.commodity_code:
             raise PositionError("cannot combine positions in different commodities")
