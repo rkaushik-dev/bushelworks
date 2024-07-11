@@ -2,6 +2,12 @@
 
 from .contracts import router as contracts_router
 from .settlements import router as settlements_router
+from .storage import router as storage_router
 from .tickets import router as tickets_router
 
-__all__ = ["contracts_router", "settlements_router", "tickets_router"]
+__all__ = [
+    "contracts_router",
+    "settlements_router",
+    "storage_router",
+    "tickets_router",
+]
