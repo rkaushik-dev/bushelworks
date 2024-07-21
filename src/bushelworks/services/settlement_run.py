@@ -22,6 +22,7 @@ from sqlalchemy import select
 from ..domain.rulebook import RuleBook
 from ..domain.settlement import LineKind, Settlement, SettlementBuilder
 from ..errors import ConflictError, ValidationError
+from ..logging import event, get_logger
 from ..money import amount, extend
 from ..persistence.base import as_decimal
 from ..persistence.mappers import contract_from_row, ticket_from_row
@@ -32,6 +33,8 @@ from .numbering import Numbering
 from .settling import Advance, DiscountBasis, StorageCharge
 
 SETTLEMENT_SERIES = "S"
+
+_log = get_logger("settlement")
 
 
 class NothingToSettle(ValidationError):
@@ -185,6 +188,17 @@ def settle_producer(
     for row in rows:
         row.settled = True
     uow.flush()
+    event(
+        _log,
+        "settlement.written",
+        number=statement.number,
+        party=party_code,
+        location=location_code,
+        tickets=len(settled),
+        gross=statement.gross,
+        deductions=statement.deductions,
+        net=statement.net,
+    )
     return statement
 
 

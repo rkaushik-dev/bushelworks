@@ -19,11 +19,15 @@ from sqlalchemy import select
 from ..domain.rulebook import RuleBook
 from ..domain.storage import StorageRate
 from ..errors import ConflictError, LookupFailure, ValidationError
+from ..logging import event, get_logger
 from ..money import amount
 from ..persistence.base import as_decimal
 from ..persistence.models import StorageLotRow, WarehouseReceiptRow, WithdrawalRow
 from ..persistence.unitofwork import UnitOfWork
 from ..units import BUSHEL_PLACES, quantize
+
+
+_log = get_logger("warehousing")
 
 
 class StorageServiceError(ValidationError):
@@ -217,7 +221,17 @@ def accrue(
             row.accrued_to_date = amount(as_decimal(row.accrued_to_date) + dollars)
     if record:
         uow.flush()
-    return AccrualRun(through=through, lines=tuple(lines))
+    run = AccrualRun(through=through, lines=tuple(lines))
+    event(
+        _log,
+        "storage.accrued",
+        through=through,
+        location=location_code,
+        lots=len(run.lines),
+        total=run.total,
+        recorded=record,
+    )
+    return run
 
 
 def _accrual_between(rate: StorageRate, row: StorageLotRow, through: date) -> Decimal:

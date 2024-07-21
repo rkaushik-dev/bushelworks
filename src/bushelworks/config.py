@@ -61,6 +61,8 @@ DEFAULT_LOCATION = "HOME"
 DEFAULT_STATEMENT_PREFIX = "S"
 DEFAULT_TICKET_PREFIX = "A"
 DEFAULT_MAX_PAGE_SIZE = 200
+DEFAULT_LOG_LEVEL = "INFO"
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,12 +77,18 @@ class Settings:
     statement_prefix: str = DEFAULT_STATEMENT_PREFIX
     ticket_prefix: str = DEFAULT_TICKET_PREFIX
     max_page_size: int = DEFAULT_MAX_PAGE_SIZE
+    log_level: str = DEFAULT_LOG_LEVEL
     api_keys: frozenset[str] = field(default_factory=frozenset)
     minimum_settlement: Decimal = Decimal("0.00")
 
     def __post_init__(self) -> None:
         if not self.database_url:
             raise ConfigurationError("a database url is required")
+        if self.log_level not in LOG_LEVELS:
+            listed = ", ".join(LOG_LEVELS)
+            raise ConfigurationError(
+                f"log level {self.log_level!r} should be one of {listed}"
+            )
         if len(self.state_code) != 2:
             raise ConfigurationError(
                 f"state code {self.state_code!r} should be two letters"
@@ -111,6 +119,7 @@ def load_settings() -> Settings:
         statement_prefix=_env("STATEMENT_PREFIX") or DEFAULT_STATEMENT_PREFIX,
         ticket_prefix=_env("TICKET_PREFIX") or DEFAULT_TICKET_PREFIX,
         max_page_size=_env_int("MAX_PAGE_SIZE", DEFAULT_MAX_PAGE_SIZE),
+        log_level=(_env("LOG_LEVEL") or DEFAULT_LOG_LEVEL).upper(),
         api_keys=frozenset(k.strip() for k in keys.split(",") if k.strip()),
         minimum_settlement=_env_decimal("MINIMUM_SETTLEMENT", "0.00"),
     )

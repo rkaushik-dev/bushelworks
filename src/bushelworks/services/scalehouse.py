@@ -25,9 +25,12 @@ from ..domain.application import (
 from ..domain.rulebook import RuleBook
 from ..domain.tickets import Disposition, ScaleTicket
 from ..errors import ConflictError, ValidationError
+from ..logging import event, get_logger, warn
 from ..persistence.models import ApplicationRow
 from ..persistence.unitofwork import UnitOfWork
 from .intake import GradedLoad, receive
+
+_log = get_logger("scalehouse")
 
 
 class ScaleHouseError(ValidationError):
@@ -97,12 +100,33 @@ def record_load(
         )
     uow.flush()
 
-    return RecordedLoad(
+    recorded = RecordedLoad(
         ticket_id=row.id,
         ticket_number=ticket.ticket_number,
         load=load,
         applications=tuple(applications),
     )
+    event(
+        _log,
+        "ticket.recorded",
+        ticket=ticket.ticket_number,
+        location=ticket.location_code,
+        party=party_code,
+        commodity=ticket.commodity_code,
+        net_pounds=ticket.net_pounds,
+        dry_bushels=load.dry_bushels,
+        grade=load.grade.grade.value,
+        contracts=",".join(recorded.contract_numbers) or None,
+        open_bushels=recorded.open_bushels,
+    )
+    if load.is_sample_grade:
+        warn(
+            _log,
+            "ticket.sample_grade",
+            ticket=ticket.ticket_number,
+            factors=",".join(f.value for f in load.grade.limiting_factors),
+        )
+    return recorded
 
 
 def _apply(

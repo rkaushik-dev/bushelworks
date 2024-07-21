@@ -10,11 +10,13 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from time import perf_counter
 
 from fastapi import FastAPI, Request
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..config import Settings, load_settings
+from ..logging import configure, event, failure, get_logger, set_request_id
 from ..persistence.base import create_all, engine_for, session_factory
 from .errors import install_error_handlers
 
@@ -32,6 +34,7 @@ def create_app(
     create_schema: bool = False,
 ) -> FastAPI:
     resolved = settings or load_settings()
+    configure(resolved.log_level)
 
     if factory is None:
         engine = engine_for(resolved.database_url, echo=resolved.echo_sql)
@@ -85,15 +88,42 @@ def _install_request_id(app: FastAPI) -> None:
     The scale house calls with a problem and reads the id off the screen. It is
     the only thing that makes an error report actionable at harvest, when there
     are nine hundred requests an hour and they all look the same.
+
+    The same id goes into the logging context, so every line a request writes
+    carries it without any of the routes having to pass it down.
     """
+    logger = get_logger("api")
 
     @app.middleware("http")
     async def _stamp(request: Request, call_next):  # type: ignore[no-untyped-def]
         incoming = request.headers.get("x-request-id")
         request_id = incoming or uuid.uuid4().hex[:16]
         request.state.request_id = request_id
-        response = await call_next(request)
+        set_request_id(request_id)
+        started = perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            failure(
+                logger,
+                "request.failed",
+                method=request.method,
+                path=request.url.path,
+                ms=round((perf_counter() - started) * 1000),
+            )
+            raise
+        finally:
+            set_request_id(None)
         response.headers["x-request-id"] = request_id
+        event(
+            logger,
+            "request.served",
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            ms=round((perf_counter() - started) * 1000),
+            request_id=request_id,
+        )
         return response
 
 
