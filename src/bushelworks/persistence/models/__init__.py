@@ -5,6 +5,7 @@ next two groups were going to make it worse. Same tables, same names, three
 modules, and everything still imports from ``bushelworks.persistence.models``.
 """
 
+from .audit import AuditRow
 from .reference import (
     CommodityRow,
     CounterRow,
@@ -33,6 +34,7 @@ from .trading import (
 
 __all__ = [
     "ApplicationRow",
+    "AuditRow",
     "CommodityRow",
     "CounterRow",
     "ContractRow",
