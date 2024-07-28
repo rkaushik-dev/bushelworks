@@ -28,6 +28,7 @@ from ..persistence.base import as_decimal
 from ..persistence.mappers import contract_from_row, ticket_from_row
 from ..persistence.models import ApplicationRow, ScaleTicketRow
 from ..persistence.unitofwork import UnitOfWork
+from . import audit
 from .intake import GradedLoad, drying_charge, receive
 from .numbering import Numbering
 from .settling import Advance, DiscountBasis, StorageCharge
@@ -113,6 +114,7 @@ def settle_producer(
     advances: Sequence[Advance] = (),
     storage: Sequence[StorageCharge] = (),
     ticket_numbers: Sequence[str] | None = None,
+    actor: str = audit.SYSTEM,
 ) -> Settlement:
     """Settle every unsettled ticket a producer has at one site."""
     if uow.tickets is None:
@@ -188,6 +190,18 @@ def settle_producer(
     for row in rows:
         row.settled = True
     uow.flush()
+    audit.record(
+        uow,
+        audit.Action.SETTLED,
+        audit.Document.SETTLEMENT,
+        statement.number,
+        actor=actor,
+        party_code=party_code,
+        location_code=location_code,
+        amount=statement.net,
+        effective_on=settled_on,
+        detail=f"{len(settled)} tickets: " + ", ".join(statement.ticket_numbers),
+    )
     event(
         _log,
         "settlement.written",

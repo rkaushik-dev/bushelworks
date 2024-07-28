@@ -28,6 +28,7 @@ from ..errors import ConflictError, ValidationError
 from ..logging import event, get_logger, warn
 from ..persistence.models import ApplicationRow
 from ..persistence.unitofwork import UnitOfWork
+from . import audit
 from .intake import GradedLoad, receive
 
 _log = get_logger("scalehouse")
@@ -74,6 +75,7 @@ def record_load(
     ticket: ScaleTicket,
     party_code: str,
     rules: RuleBook,
+    actor: str = audit.SYSTEM,
 ) -> RecordedLoad:
     """Write the ticket, grade it, and apply it to whatever it fills."""
     if uow.tickets is None or uow.contracts is None:
@@ -106,6 +108,34 @@ def record_load(
         load=load,
         applications=tuple(applications),
     )
+    audit.record(
+        uow,
+        audit.Action.RECORDED,
+        audit.Document.TICKET,
+        ticket.ticket_number,
+        actor=actor,
+        party_code=party_code,
+        location_code=ticket.location_code,
+        effective_on=ticket.scale_date,
+        detail=(
+            f"{ticket.commodity_code} {load.settled_bushels} bu net, "
+            f"grade {load.grade.grade.value}"
+        ),
+    )
+    for application in recorded.applications:
+        if application.contract_number is None:
+            continue
+        audit.record(
+            uow,
+            audit.Action.APPLIED,
+            audit.Document.CONTRACT,
+            application.contract_number,
+            actor=actor,
+            party_code=party_code,
+            location_code=ticket.location_code,
+            effective_on=ticket.scale_date,
+            detail=f"{application.bushels} bu off {ticket.ticket_number}",
+        )
     event(
         _log,
         "ticket.recorded",
