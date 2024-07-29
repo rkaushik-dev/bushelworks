@@ -106,6 +106,17 @@ class Settings:
     def requires_api_key(self) -> bool:
         return bool(self.api_keys)
 
+    @property
+    def key_roles(self) -> dict[str, str]:
+        """Each configured key mapped to the role it carries.
+
+        Parsed on demand rather than at load time so the settings object stays
+        a plain frozen dataclass and the security module owns the format.
+        """
+        from .api.security import parse_keys
+
+        return parse_keys(",".join(sorted(self.api_keys)))
+
 
 def load_settings() -> Settings:
     """Read the environment into a Settings, raising on anything unusable."""

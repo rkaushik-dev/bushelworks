@@ -9,19 +9,25 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
 
 from ..config import Settings
 from ..domain.rulebook import RuleBook
-from ..errors import BushelworksError
 from ..persistence.unitofwork import UnitOfWork
 from ..services.houses import house_rulebook
+from .security import NotAuthorised, office_access, read_access, scale_access
 
-
-class NotAuthorised(BushelworksError):
-    """Raised when a caller has no usable key. Mapped to 401 by the API."""
-
-    code = "not_authorised"
+__all__ = [
+    "NotAuthorised",
+    "get_rules",
+    "get_settings",
+    "get_uow",
+    "office_access",
+    "paging",
+    "read_access",
+    "require_api_key",
+    "scale_access",
+]
 
 
 def get_settings(request: Request) -> Settings:
@@ -48,24 +54,10 @@ def get_uow(request: Request) -> Iterator[UnitOfWork]:
         yield uow
 
 
-def require_api_key(
-    request: Request,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-) -> str:
-    """Check the key, unless the house has not configured any.
-
-    A house with no keys on file is running on a private network behind the
-    scale house door, which is how most of them run. Turning the check on is a
-    setting rather than a deploy.
-    """
-    settings: Settings = request.app.state.settings
-    if not settings.requires_api_key:
-        return "anonymous"
-    if x_api_key is None:
-        raise NotAuthorised("this house requires an X-API-Key header")
-    if x_api_key not in settings.api_keys:
-        raise NotAuthorised("that API key is not on file")
-    return x_api_key
+# Kept as the name the routers already import. The check itself moved to
+# bushelworks.api.security, which knows about roles; this is the weakest of
+# them and means "any key the house recognises".
+require_api_key = read_access
 
 
 def paging(

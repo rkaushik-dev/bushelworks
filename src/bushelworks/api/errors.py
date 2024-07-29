@@ -28,14 +28,17 @@ from ..errors import (
 )
 
 
-def _not_authorised() -> type[BushelworksError]:
-    from .deps import NotAuthorised
+def _security_errors() -> tuple[type[BushelworksError], type[BushelworksError]]:
+    from .security import Forbidden, NotAuthorised
 
-    return NotAuthorised
+    return NotAuthorised, Forbidden
 
+
+_NOT_AUTHORISED, _FORBIDDEN = _security_errors()
 
 STATUS_FOR: list[tuple[type[BushelworksError], int]] = [
-    (_not_authorised(), 401),
+    (_NOT_AUTHORISED, 401),
+    (_FORBIDDEN, 403),
     (LookupFailure, 404),
     (ConflictError, 409),
     (ValidationError, 422),
