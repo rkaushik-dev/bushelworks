@@ -16,7 +16,8 @@ from ...persistence.mappers import sample_from_rows, ticket_from_row
 from ...persistence.unitofwork import UnitOfWork
 from ...services.intake import receive
 from ...services.scalehouse import record_load
-from ..deps import get_rules, get_uow, paging, require_api_key
+from ..deps import get_rules, get_uow, paging
+from ..security import scale_access
 from ..schemas import (
     GradedLoadOut,
     GradeOut,
@@ -27,7 +28,14 @@ from ..schemas import (
     TicketOut,
 )
 
-router = APIRouter(prefix="/tickets", tags=["tickets"])
+# The driveway terminal holds a scale key and needs to both write and read
+# tickets, so the whole router sits at that level rather than splitting the
+# reads down to a read key nobody at the scale house has.
+router = APIRouter(
+    prefix="/tickets",
+    tags=["tickets"],
+    dependencies=[Depends(scale_access)],
+)
 
 
 def _to_domain(body: TicketIn) -> ScaleTicket:
@@ -93,7 +101,6 @@ def create_ticket(
     response: Response,
     uow: UnitOfWork = Depends(get_uow),
     rules=Depends(get_rules),
-    _: str = Depends(require_api_key),
 ) -> GradedLoadOut:
     ticket = _to_domain(body)
     recorded = record_load(uow, ticket, body.party_code, rules)
@@ -125,7 +132,6 @@ def read_ticket(
     location_code: str,
     ticket_number: str,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> TicketOut:
     return _to_out(uow.tickets.row(location_code, ticket_number))
 
@@ -136,7 +142,6 @@ def read_grade(
     ticket_number: str,
     uow: UnitOfWork = Depends(get_uow),
     rules=Depends(get_rules),
-    _: str = Depends(require_api_key),
 ) -> GradedLoadOut:
     """Regrade a stored ticket against the tables in force on its scale date.
 
@@ -158,7 +163,6 @@ def void_ticket(
     ticket_number: str,
     reason: str = Query(min_length=1, max_length=200),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> TicketOut:
     row = uow.tickets.void(location_code, ticket_number, reason)
     uow.commit()
@@ -173,7 +177,6 @@ def list_tickets(
     unsettled_only: bool = False,
     page: tuple[int, int] = Depends(paging),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Page:
     offset, limit = page
     if unsettled_only:

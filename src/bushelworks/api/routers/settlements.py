@@ -23,10 +23,17 @@ from ...persistence.unitofwork import UnitOfWork
 from ...reports.statement import register, render
 from ...services.settlement_run import settle_producer
 from ...services.settling import Advance, DiscountBasis, StorageCharge
-from ..deps import get_rules, get_settings, get_uow, paging, require_api_key
+from ..deps import get_rules, get_settings, get_uow, paging
 from ..schemas import Money, Page, Quantity, SettlementLineOut, SettlementOut, _as_decimal
+from ..security import office_access
 
-router = APIRouter(prefix="/settlements", tags=["settlements"])
+# Settling writes cheques. Nothing below the office role gets in here at all,
+# including the reads, because a settlement shows what a producer was paid.
+router = APIRouter(
+    prefix="/settlements",
+    tags=["settlements"],
+    dependencies=[Depends(office_access)],
+)
 
 
 class AdvanceIn(Money):
@@ -103,7 +110,6 @@ def settle(
     response: Response,
     uow: UnitOfWork = Depends(get_uow),
     rules=Depends(get_rules),
-    _: str = Depends(require_api_key),
 ) -> SettlementOut:
     statement = settle_producer(
         uow,
@@ -128,7 +134,6 @@ def settle(
 def read_settlement(
     number: str,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> SettlementOut:
     return _to_out(uow.settlements.get(number))
 
@@ -143,7 +148,6 @@ def print_statement(
     number: str,
     uow: UnitOfWork = Depends(get_uow),
     settings=Depends(get_settings),
-    _: str = Depends(require_api_key),
 ) -> Response:
     statement = uow.settlements.get(number)
     return Response(
@@ -157,7 +161,6 @@ def pay_settlement(
     number: str,
     body: PayIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> SettlementOut:
     uow.settlements.mark_paid(number, body.cheque_number, body.paid_on)
     uow.commit()
@@ -171,7 +174,6 @@ def list_settlements(
     unpaid_only: bool = False,
     page: tuple[int, int] = Depends(paging),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Page:
     offset, limit = page
     if unpaid_only:
@@ -199,7 +201,6 @@ def print_register(
     on: date,
     location_code: str | None = None,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Response:
     rows = uow.settlements.for_day(on, location_code)
     text = register(

@@ -26,10 +26,16 @@ from ...services.warehousing import (
     store,
     withdraw,
 )
-from ..deps import get_rules, get_uow, paging, require_api_key
+from ..deps import get_rules, get_uow, paging
 from ..schemas import Money, Page, Quantity, _as_decimal
+from ..security import office_access
 
-router = APIRouter(prefix="/storage", tags=["storage"])
+# The accrual run bills producers and a receipt is a negotiable instrument.
+router = APIRouter(
+    prefix="/storage",
+    tags=["storage"],
+    dependencies=[Depends(office_access)],
+)
 
 
 class StoreIn(Money):
@@ -149,7 +155,6 @@ def _receipt_out(row) -> ReceiptOut:
 def open_lot(
     body: StoreIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> LotOut:
     row = store(
         uow,
@@ -170,7 +175,6 @@ def open_lot(
 def read_lot(
     lot_id: str,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> LotOut:
     return _lot_out(lot(uow, lot_id))
 
@@ -182,7 +186,6 @@ def list_lots(
     location_code: str | None = None,
     page: tuple[int, int] = Depends(paging),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Page:
     offset, limit = page
     rows = open_lots(uow, party_code, commodity_code, location_code)
@@ -199,7 +202,6 @@ def list_lots(
 def make_withdrawal(
     body: WithdrawIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> list[LotOut]:
     written = withdraw(
         uow,
@@ -223,7 +225,6 @@ def run_accrual(
     dry_run: bool = False,
     uow: UnitOfWork = Depends(get_uow),
     rules=Depends(get_rules),
-    _: str = Depends(require_api_key),
 ) -> AccrualOut:
     run = accrue(uow, rules, through, location_code, record=not dry_run)
     out = AccrualOut(
@@ -254,7 +255,6 @@ def run_accrual(
 def write_receipt(
     body: ReceiptIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ReceiptOut:
     row = issue_receipt(
         uow,
@@ -274,7 +274,6 @@ def cancel(
     receipt_number: str,
     on: date,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ReceiptOut:
     row = cancel_receipt(uow, receipt_number, on)
     out = _receipt_out(row)
@@ -287,7 +286,6 @@ def read_on_hand(
     commodity_code: str,
     location_code: str | None = None,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> dict[str, str]:
     """Bushels the house is holding for producers, which it does not own."""
     return {

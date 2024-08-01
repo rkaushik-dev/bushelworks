@@ -23,10 +23,16 @@ from ...domain.contracts import (
 from ...domain.pricing import FuturesMonth
 from ...persistence.mappers import contract_from_row
 from ...persistence.unitofwork import UnitOfWork
-from ..deps import get_uow, paging, require_api_key
+from ..deps import get_uow, paging
 from ..schemas import Money, Page, Quantity, _as_decimal
+from ..security import office_access
 
-router = APIRouter(prefix="/contracts", tags=["contracts"])
+# Writing a contract commits the house to a price. That is an office job.
+router = APIRouter(
+    prefix="/contracts",
+    tags=["contracts"],
+    dependencies=[Depends(office_access)],
+)
 
 
 class ContractIn(Money):
@@ -158,7 +164,6 @@ def _to_out(contract: PurchaseContract, applied: Decimal) -> ContractOut:
 def write_contract(
     body: ContractIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     contract = _to_domain(body)
     uow.contracts.add(contract)
@@ -170,7 +175,6 @@ def write_contract(
 def read_contract(
     number: str,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     contract = uow.contracts.get(number)
     return _to_out(contract, uow.contracts.applied_bushels(number))
@@ -181,7 +185,6 @@ def set_basis(
     number: str,
     body: PriceIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     amended = uow.contracts.get(number).set_basis(body.value, body.on)
     uow.contracts.replace(amended)
@@ -194,7 +197,6 @@ def set_futures(
     number: str,
     body: PriceIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     amended = uow.contracts.get(number).set_futures(body.value, body.on)
     uow.contracts.replace(amended)
@@ -207,7 +209,6 @@ def roll_contract(
     number: str,
     body: RollIn,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     contract = uow.contracts.get(number)
     month = FuturesMonth(contract.commodity_code, body.month_code, body.year)
@@ -221,7 +222,6 @@ def roll_contract(
 def cancel_contract(
     number: str,
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> ContractOut:
     amended = uow.contracts.get(number).cancel()
     uow.contracts.replace(amended)
@@ -236,7 +236,6 @@ def list_contracts(
     on: date | None = None,
     page: tuple[int, int] = Depends(paging),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Page:
     """Open contracts for a producer, defaulting to those open today."""
     offset, limit = page

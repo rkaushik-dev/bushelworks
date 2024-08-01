@@ -16,10 +16,16 @@ from ...domain.position import hedge_requirement
 from ...persistence.unitofwork import UnitOfWork
 from ...reports.position import hedge_sheet, render, to_csv
 from ...services.positions import build_report, line_for, unhedged
-from ..deps import get_settings, get_uow, require_api_key
+from ..deps import get_settings, get_uow
 from ..schemas import Money, Quantity
+from ..security import read_access
 
-router = APIRouter(prefix="/positions", tags=["positions"])
+# Nothing here changes anything, so a read key is enough.
+router = APIRouter(
+    prefix="/positions",
+    tags=["positions"],
+    dependencies=[Depends(read_access)],
+)
 
 
 class PositionLineOut(Money):
@@ -68,7 +74,6 @@ def read_position(
     location_code: str = "*",
     contract_size: Decimal = Query(default=Decimal("5000")),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> PositionOut:
     report = build_report(uow, as_of, location_code=location_code)
     return PositionOut(
@@ -87,7 +92,6 @@ def read_commodity_position(
     shipped: str = "0",
     contract_size: Decimal = Query(default=Decimal("5000")),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> PositionLineOut:
     """One commodity, with the sale side supplied by the caller.
 
@@ -115,7 +119,6 @@ def print_board(
     location_code: str = "*",
     uow: UnitOfWork = Depends(get_uow),
     settings=Depends(get_settings),
-    _: str = Depends(require_api_key),
 ) -> Response:
     report = build_report(uow, as_of, location_code=location_code)
     return Response(
@@ -134,7 +137,6 @@ def print_hedge_sheet(
     location_code: str = "*",
     contract_size: Decimal = Query(default=Decimal("5000")),
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Response:
     report = build_report(uow, as_of, location_code=location_code)
     return Response(
@@ -152,7 +154,6 @@ def export_position(
     as_of: date,
     location_code: str = "*",
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> Response:
     report = build_report(uow, as_of, location_code=location_code)
     return Response(
@@ -169,7 +170,6 @@ def read_unhedged(
     as_of: date,
     location_code: str = "*",
     uow: UnitOfWork = Depends(get_uow),
-    _: str = Depends(require_api_key),
 ) -> dict[str, str]:
     """The gap between the book and what the broker says is on.
 
