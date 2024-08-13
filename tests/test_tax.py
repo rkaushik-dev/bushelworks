@@ -6,9 +6,9 @@ import pytest
 
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
 from bushelworks.persistence.unitofwork import unit_of_work
+from bushelworks.services.charges import Advance
 from bushelworks.services.scalehouse import record_load
 from bushelworks.services.settlement_run import settle_producer
-from bushelworks.services.settling import Advance
 from bushelworks.services.tax import (
     REPORTING_THRESHOLD,
     TaxError,

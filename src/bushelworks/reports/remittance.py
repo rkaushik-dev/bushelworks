@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Iterable, Sequence
 
 from ..domain.assessments import WithheldLine
 from ..errors import ValidationError

@@ -21,8 +21,7 @@ from bushelworks.persistence.mappers import (
     ticket_to_row,
 )
 from bushelworks.persistence.models import ContractRow, ScaleTicketRow, SettlementRow
-from bushelworks.services.intake import receive
-from bushelworks.services.settling import settle_load
+from support import settlement_for
 
 
 @pytest.fixture
@@ -148,9 +147,8 @@ def test_a_priced_forward_survives_a_round_trip(make_session):
 
 
 def test_a_settlement_survives_a_round_trip(make_session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
-    original = settle_load(
-        "S-2024-0417", load, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
+    original = settlement_for(
+        "S-2024-0417", corn_ticket, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
     )
     with make_session() as session:
         session.add(settlement_to_row(original))
@@ -168,9 +166,8 @@ def test_a_settlement_survives_a_round_trip(make_session, rules, corn_ticket):
 
 
 def test_the_stored_totals_match_the_recomputed_ones(make_session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
-    original = settle_load(
-        "S-1", load, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
+    original = settlement_for(
+        "S-1", corn_ticket, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
     )
     with make_session() as session:
         session.add(settlement_to_row(original))
@@ -183,9 +180,8 @@ def test_the_stored_totals_match_the_recomputed_ones(make_session, rules, corn_t
 
 
 def test_line_sequence_is_written_in_canonical_order(make_session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
-    original = settle_load(
-        "S-1", load, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
+    original = settlement_for(
+        "S-1", corn_ticket, Decimal("4.3500"), rules, "MERRICK", date(2024, 10, 20)
     )
     with make_session() as session:
         session.add(settlement_to_row(original))

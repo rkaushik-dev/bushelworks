@@ -21,8 +21,8 @@ from pydantic import Field, field_validator
 from ...persistence.mappers import settlement_from_row
 from ...persistence.unitofwork import UnitOfWork
 from ...reports.statement import register, render
+from ...services.charges import Advance, Deduction, DiscountBasis, StorageCharge
 from ...services.settlement_run import settle_producer
-from ...services.settling import Advance, DiscountBasis, StorageCharge
 from ..deps import get_rules, get_settings, get_uow, paging
 from ..schemas import Money, Page, Quantity, SettlementLineOut, SettlementOut, _as_decimal
 from ..security import office_access
@@ -58,6 +58,17 @@ class StorageIn(Money):
         return _as_decimal(value)
 
 
+class DeductionIn(Money):
+    code: str = Field(min_length=1, max_length=24)
+    description: str = Field(min_length=1, max_length=120)
+    dollars: Quantity
+
+    @field_validator("dollars", mode="before")
+    @classmethod
+    def _decimal(cls, value: Any) -> Decimal:
+        return _as_decimal(value)
+
+
 class SettleIn(Money):
     party_code: str = Field(min_length=1, max_length=24)
     location_code: str = Field(min_length=1, max_length=12)
@@ -67,6 +78,7 @@ class SettleIn(Money):
     ticket_numbers: list[str] | None = None
     advances: list[AdvanceIn] = Field(default_factory=list)
     storage: list[StorageIn] = Field(default_factory=list)
+    deductions: list[DeductionIn] = Field(default_factory=list)
 
     @field_validator("spot_price", mode="before")
     @classmethod
@@ -123,6 +135,9 @@ def settle(
             Advance(a.reference, a.dollars, a.advanced_on) for a in body.advances
         ],
         storage=[StorageCharge(s.lot_id, s.dollars, s.through) for s in body.storage],
+        deductions=[
+            Deduction(d.code, d.description, d.dollars) for d in body.deductions
+        ],
         ticket_numbers=body.ticket_numbers,
     )
     uow.commit()

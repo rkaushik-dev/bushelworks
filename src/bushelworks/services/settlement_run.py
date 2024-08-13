@@ -29,9 +29,9 @@ from ..persistence.mappers import contract_from_row, ticket_from_row
 from ..persistence.models import ApplicationRow, ScaleTicketRow
 from ..persistence.unitofwork import UnitOfWork
 from . import audit
+from .charges import Advance, Deduction, DiscountBasis, StorageCharge
 from .intake import GradedLoad, drying_charge, receive
 from .numbering import Numbering
-from .settling import Advance, DiscountBasis, StorageCharge
 
 SETTLEMENT_SERIES = "S"
 
@@ -113,6 +113,7 @@ def settle_producer(
     discount_basis: DiscountBasis = DiscountBasis.DRY,
     advances: Sequence[Advance] = (),
     storage: Sequence[StorageCharge] = (),
+    deductions: Sequence[Deduction] = (),
     ticket_numbers: Sequence[str] | None = None,
     actor: str = audit.SYSTEM,
 ) -> Settlement:
@@ -175,6 +176,14 @@ def settle_producer(
         )
 
     _add_assessments(builder, settled, rules)
+
+    for deduction in deductions:
+        builder.add_charge(
+            LineKind.DEDUCTION,
+            deduction.code,
+            deduction.description,
+            deduction.dollars,
+        )
 
     for advance in advances:
         builder.add_charge(

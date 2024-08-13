@@ -20,10 +20,10 @@ from bushelworks.domain.tickets import Disposition, SplitRole, SplitShare
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
 from bushelworks.persistence.unitofwork import unit_of_work
 from bushelworks.reports.statement import render
+from bushelworks.services.charges import Advance
 from bushelworks.services.houses import house_rulebook
 from bushelworks.services.scalehouse import record_load
 from bushelworks.services.settlement_run import settle_producer
-from bushelworks.services.settling import Advance
 
 HARVEST = date(2024, 10, 3)
 SETTLED = date(2024, 10, 20)
@@ -240,7 +240,10 @@ def test_a_second_producer_gets_the_next_number(a_days_hauling, house):
     with unit_of_work(a_days_hauling) as uow:
         record_load(
             uow,
-            replace(load("A-10601", "78420", "26180", "16.0"), splits=[SplitShare("HOLLIS", Decimal("100"))]),
+            replace(
+                load("A-10601", "78420", "26180", "16.0"),
+                splits=[SplitShare("HOLLIS", Decimal("100"))],
+            ),
             "HOLLIS",
             house,
         )

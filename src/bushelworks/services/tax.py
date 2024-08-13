@@ -16,10 +16,10 @@ row in the working file so the office can see the ones that nearly made it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from sqlalchemy import select
 

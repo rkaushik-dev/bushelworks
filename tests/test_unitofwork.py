@@ -123,14 +123,12 @@ def test_a_missing_ticket_still_raises_inside_a_unit_of_work(factory):
 
 
 def test_settlements_and_tickets_land_together(factory, rules, corn_ticket):
-    from bushelworks.services.intake import receive
-    from bushelworks.services.settling import settle_load
+    from support import settlement_for
 
     with unit_of_work(factory) as uow:
         row = uow.tickets.add(corn_ticket, "MERRICK")
-        load = receive(corn_ticket, rules)
-        statement = settle_load(
-            "S-1", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
+        statement = settlement_for(
+            "S-1", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
         )
         uow.settlements.add(statement, ticket_ids=[row.id])
         uow.commit()

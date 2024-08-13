@@ -17,7 +17,6 @@ from ...persistence.unitofwork import UnitOfWork
 from ...services.intake import receive
 from ...services.scalehouse import record_load
 from ..deps import get_rules, get_uow, paging
-from ..security import scale_access
 from ..schemas import (
     GradedLoadOut,
     GradeOut,
@@ -27,6 +26,7 @@ from ..schemas import (
     TicketIn,
     TicketOut,
 )
+from ..security import scale_access
 
 # The driveway terminal holds a scale key and needs to both write and read
 # tickets, so the whole router sits at that level rather than splitting the

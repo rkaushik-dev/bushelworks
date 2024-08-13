@@ -58,7 +58,12 @@ def test_fields_render_in_the_order_they_were_given():
 
 def test_an_event_line_carries_its_fields():
     with capture() as log:
-        event(get_logger("intake"), "ticket.recorded", ticket="A-10441", bushels=Decimal("897.6324"))
+        event(
+            get_logger("intake"),
+            "ticket.recorded",
+            ticket="A-10441",
+            bushels=Decimal("897.6324"),
+        )
     assert len(log.lines) == 1
     assert "ticket.recorded" in log.lines[0]
     assert "ticket=A-10441" in log.lines[0]

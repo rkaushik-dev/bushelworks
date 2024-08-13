@@ -18,7 +18,7 @@ from decimal import Decimal
 from sqlalchemy import CheckConstraint, Date, DateTime, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..base import Base, MONEY
+from ..base import MONEY, Base
 from .reference import utc_now
 
 

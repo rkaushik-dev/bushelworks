@@ -18,8 +18,7 @@ from bushelworks.persistence.repositories import (
     TicketNotFound,
     TicketRepository,
 )
-from bushelworks.services.intake import receive
-from bushelworks.services.settling import settle_load
+from support import settlement_for
 
 
 @pytest.fixture
@@ -208,9 +207,8 @@ def test_closing_a_contract_twice_is_a_conflict(session):
 
 
 def test_a_settlement_can_be_written_and_read_back(session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
-    statement = settle_load(
-        "S-2024-0417", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
+    statement = settlement_for(
+        "S-2024-0417", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
     )
     repo = SettlementRepository(session)
     repo.add(statement)
@@ -221,9 +219,8 @@ def test_a_settlement_can_be_written_and_read_back(session, rules, corn_ticket):
 def test_a_settlement_can_name_its_tickets(session, rules, corn_ticket):
     tickets = TicketRepository(session)
     row = tickets.add(corn_ticket, "MERRICK")
-    load = receive(corn_ticket, rules)
-    statement = settle_load(
-        "S-1", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
+    statement = settlement_for(
+        "S-1", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
     )
     SettlementRepository(session).add(statement, ticket_ids=[row.id])
     session.commit()
@@ -235,9 +232,8 @@ def test_a_missing_settlement_says_so(session):
 
 
 def test_paying_a_settlement_twice_is_a_conflict(session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
-    statement = settle_load(
-        "S-1", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
+    statement = settlement_for(
+        "S-1", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20)
     )
     repo = SettlementRepository(session)
     repo.add(statement)
@@ -248,23 +244,21 @@ def test_paying_a_settlement_twice_is_a_conflict(session, rules, corn_ticket):
 
 
 def test_unpaid_settlements_are_listed_oldest_first(session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
     repo = SettlementRepository(session)
     repo.add(
-        settle_load("S-2", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 21))
+        settlement_for("S-2", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 21))
     )
     repo.add(
-        settle_load("S-1", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20))
+        settlement_for("S-1", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20))
     )
     session.commit()
     assert [row.number for row in repo.unpaid()] == ["S-1", "S-2"]
 
 
 def test_settlements_for_a_day(session, rules, corn_ticket):
-    load = receive(corn_ticket, rules)
     repo = SettlementRepository(session)
     repo.add(
-        settle_load("S-1", load, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20))
+        settlement_for("S-1", corn_ticket, Decimal("4.35"), rules, "MERRICK", date(2024, 10, 20))
     )
     session.commit()
     assert len(repo.for_day(date(2024, 10, 20))) == 1

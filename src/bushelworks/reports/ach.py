@@ -12,10 +12,10 @@ way to be sure they agree is to add them here.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from ..errors import ValidationError
 

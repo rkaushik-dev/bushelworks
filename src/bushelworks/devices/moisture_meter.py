@@ -135,15 +135,15 @@ def parse_batch(text: str) -> list[MeterReading]:
     spool is what the bench printed all morning and one bad report should not
     cost the other forty.
     """
+    import contextlib
+
     readings: list[MeterReading] = []
     current: list[str] = []
     for line in text.splitlines():
         current.append(line)
         if line.strip() == END_MARKER:
-            try:
+            with contextlib.suppress(MeterError):
                 readings.append(parse_report("\n".join(current)))
-            except MeterError:
-                pass
             current = []
     return readings
 

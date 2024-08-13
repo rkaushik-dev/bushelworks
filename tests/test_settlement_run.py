@@ -8,9 +8,9 @@ from bushelworks.domain.contracts import ContractKind, DeliveryWindow, PurchaseC
 from bushelworks.domain.settlement import LineKind
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
 from bushelworks.persistence.unitofwork import unit_of_work
+from bushelworks.services.charges import Advance, Deduction, StorageCharge
 from bushelworks.services.scalehouse import record_load
 from bushelworks.services.settlement_run import NothingToSettle, settle_producer
-from bushelworks.services.settling import Advance, StorageCharge
 
 SETTLED = date(2024, 10, 20)
 SPOT = Decimal("4.3500")
@@ -217,6 +217,55 @@ def test_settlement_numbers_run_consecutively(factory, rules, corn_ticket):
         uow.commit()
     assert first.number == "S-2024-0001"
     assert second.number == "S-2024-0002"
+
+
+def test_an_other_deduction_lands_on_its_own_line(factory, rules, corn_ticket):
+    with unit_of_work(factory) as uow:
+        record_load(uow, corn_ticket, "MERRICK", rules)
+        statement = settle_producer(
+            uow,
+            "MERRICK",
+            "HOME",
+            rules,
+            SETTLED,
+            SPOT,
+            deductions=[
+                Deduction("FREIGHT", "freight to Salina", Decimal("184.50"))
+            ],
+        )
+        uow.commit()
+    lines = statement.of_kind(LineKind.DEDUCTION)
+    assert [line.code for line in lines] == ["FREIGHT"]
+    assert lines[0].dollars == Decimal("184.50")
+    statement.check_balances()
+
+
+def test_a_deduction_of_nothing_is_refused():
+    with pytest.raises(Exception):
+        Deduction("FREIGHT", "freight", Decimal("0"))
+
+
+def test_a_deduction_needs_a_description():
+    with pytest.raises(Exception):
+        Deduction("FREIGHT", "", Decimal("10.00"))
+
+
+def test_deductions_come_before_advances_on_the_statement(factory, rules, corn_ticket):
+    with unit_of_work(factory) as uow:
+        record_load(uow, corn_ticket, "MERRICK", rules)
+        statement = settle_producer(
+            uow,
+            "MERRICK",
+            "HOME",
+            rules,
+            SETTLED,
+            SPOT,
+            advances=[Advance("A", Decimal("100.00"), date(2024, 9, 12))],
+            deductions=[Deduction("FREIGHT", "freight", Decimal("184.50"))],
+        )
+        uow.commit()
+    kinds = [line.kind for line in statement.lines]
+    assert kinds.index(LineKind.ADVANCE) < kinds.index(LineKind.DEDUCTION)
 
 
 def test_the_statement_is_stored_and_reads_back(factory, rules, corn_ticket):

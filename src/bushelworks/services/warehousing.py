@@ -9,10 +9,10 @@ notices the first run went out before the last load was keyed.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
 from sqlalchemy import select
 
@@ -25,7 +25,6 @@ from ..persistence.base import as_decimal
 from ..persistence.models import StorageLotRow, WarehouseReceiptRow, WithdrawalRow
 from ..persistence.unitofwork import UnitOfWork
 from ..units import BUSHEL_PLACES, quantize
-
 
 _log = get_logger("warehousing")
 

@@ -8,22 +8,20 @@ from bushelworks.reports.statement import (
     render_many,
     summary_line,
 )
-from bushelworks.services.intake import receive
-from bushelworks.services.settling import Advance, settle_load
+from bushelworks.services.charges import Advance
+from support import quick_statement
 
 SETTLED = date(2024, 10, 20)
 PRICE = Decimal("4.3500")
 
 
 def statement(rules, corn_ticket, number="S-2024-0417"):
-    load = receive(corn_ticket, rules)
-    return settle_load(
-        number,
-        load,
-        PRICE,
+    return quick_statement(
         rules,
-        "MERRICK",
-        SETTLED,
+        corn_ticket,
+        number=number,
+        unit_price=PRICE,
+        settled_on=SETTLED,
         advances=[Advance("2024-0912", Decimal("1500.00"), date(2024, 9, 12))],
         contract_number="F-2024-118",
     )

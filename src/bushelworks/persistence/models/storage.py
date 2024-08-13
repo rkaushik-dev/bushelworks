@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..base import Base, BUSHELS, MONEY
+from ..base import BUSHELS, MONEY, Base
 from .reference import TimestampMixin
 
 
@@ -58,7 +58,7 @@ class StorageLotRow(Base, TimestampMixin):
         Boolean, nullable=False, default=False
     )
 
-    withdrawals: Mapped[list["WithdrawalRow"]] = relationship(
+    withdrawals: Mapped[list[WithdrawalRow]] = relationship(
         back_populates="lot",
         cascade="all, delete-orphan",
         lazy="selectin",

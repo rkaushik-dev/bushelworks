@@ -18,9 +18,9 @@ blend is better than predicted rather than worse.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Mapping, Sequence
 
 from ..errors import ValidationError
 from ..units import BUSHEL_PLACES, quantize

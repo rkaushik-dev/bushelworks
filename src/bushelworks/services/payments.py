@@ -15,12 +15,12 @@ Two rules that look like details and are not:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Sequence
 
-from ..errors import ConflictError, ValidationError
+from ..errors import ValidationError
 from ..logging import event, get_logger
 from ..money import amount, total
 from ..persistence.base import as_decimal

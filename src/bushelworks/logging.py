@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Iterator, Mapping
 from contextvars import ContextVar
 from decimal import Decimal
-from typing import Any, Iterator, Mapping
+from typing import Any
 
 LOGGER_NAME = "bushelworks"
 
@@ -124,7 +125,7 @@ class capture:
         self.lines: list[str] = []
         self._handler: logging.Handler | None = None
 
-    def __enter__(self) -> "capture":
+    def __enter__(self) -> capture:
         logger = get_logger()
         handler = _ListHandler(self.lines)
         handler.setFormatter(KeyValueFormatter())

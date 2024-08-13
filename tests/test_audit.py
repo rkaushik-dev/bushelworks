@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date
 from decimal import Decimal
 
 import pytest
@@ -149,9 +149,9 @@ def test_a_long_detail_is_trimmed_rather_than_refused(factory):
 
 
 def test_the_day_view_finds_todays_entries(factory):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     with unit_of_work(factory) as uow:
         record(uow, Action.RECORDED, Document.TICKET, "A-1")
         record(uow, Action.VOIDED, Document.TICKET, "A-1")

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Iterable, Sequence
 from decimal import Decimal
-from typing import Iterable, Sequence
 
 from ..domain.position import PositionLine, PositionReport, hedge_requirement
 
