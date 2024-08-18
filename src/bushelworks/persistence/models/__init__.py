@@ -14,6 +14,7 @@ from .reference import (
     SplitAgreement,
     TimestampMixin,
 )
+from .sales import SaleRow, ShipmentRow
 from .storage import (
     StorageLotRow,
     WarehouseReceiptRow,
@@ -40,8 +41,10 @@ __all__ = [
     "ContractRow",
     "Location",
     "Party",
+    "SaleRow",
     "SampleRow",
     "ScaleTicketRow",
+    "ShipmentRow",
     "SettlementLineRow",
     "SettlementRow",
     "SettlementTicketRow",
