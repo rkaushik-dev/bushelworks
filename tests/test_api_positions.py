@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -94,20 +96,18 @@ def test_one_commodity_can_be_asked_for(busy):
     assert body["as_of"] == "2024-11-01"
 
 
-def test_the_caller_can_supply_the_sale_side(busy):
+def test_the_sale_side_comes_off_the_sale_contracts(busy):
     flat = busy.get("/positions/2024-11-01/commodity/CORN").json()
-    sold = busy.get(
-        "/positions/2024-11-01/commodity/CORN", params={"sold_forward": "100000"}
-    ).json()
-    assert sold["is_short"] is True
-    assert flat["net_long"] != sold["net_long"]
+    assert flat["sold_forward"] == "0.0000"
 
 
-def test_shipped_bushels_come_off_what_is_on_hand(busy):
-    body = busy.get(
-        "/positions/2024-11-01/commodity/CORN", params={"shipped": "1000"}
+def test_grain_in_transit_can_still_be_passed_in(busy):
+    plain = busy.get("/positions/2024-11-01/commodity/CORN").json()
+    moving = busy.get(
+        "/positions/2024-11-01/commodity/CORN", params={"in_transit": "1000"}
     ).json()
-    assert body["on_hand"] == "865.7143"
+    assert moving["in_transit"] == "1000"
+    assert Decimal(moving["net_long"]) == Decimal(plain["net_long"]) + Decimal("1000")
 
 
 def test_the_board_prints_as_text(busy):

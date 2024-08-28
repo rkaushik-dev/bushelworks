@@ -88,23 +88,21 @@ def read_commodity_position(
     as_of: date,
     commodity_code: str,
     location_code: str = "*",
-    sold_forward: str = "0",
-    shipped: str = "0",
+    in_transit: str = "0",
     contract_size: Decimal = Query(default=Decimal("5000")),
     uow: UnitOfWork = Depends(get_uow),
 ) -> PositionLineOut:
-    """One commodity, with the sale side supplied by the caller.
+    """One commodity, assembled whole from what is on file.
 
-    Sales still live on the terminal's paperwork, so the screen passes what the
-    desk knows rather than the service inventing a zero.
+    ``in_transit`` is the one figure still passed in. Grain on a barge between
+    two of the house's own sites has no document here to read it off.
     """
     line = line_for(
         uow,
         commodity_code,
         as_of,
         location_code=location_code,
-        sold_forward=Decimal(sold_forward),
-        shipped=Decimal(shipped),
+        in_transit=Decimal(in_transit),
     )
     return _line_out(line, contract_size)
 

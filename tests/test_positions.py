@@ -43,6 +43,30 @@ def a_contract(number="F-2024-118", bushels="20000"):
     )
 
 
+def a_sale(**overrides):
+    from bushelworks.persistence.models import SaleRow
+
+    base = dict(
+        number="S-2024-0088",
+        kind="forward",
+        buyer="Salina Terminal",
+        destination="terminal",
+        commodity_code="CORN",
+        origin_code="HOME",
+        written_on=date(2024, 9, 5),
+        bushels=Decimal("10000"),
+        window_opens=date(2024, 10, 1),
+        window_closes=date(2024, 12, 31),
+        flat_price=Decimal("4.7800"),
+        spec_max_moisture=Decimal("15.0"),
+        spec_min_test_weight=Decimal("54.0"),
+        spec_max_damage=Decimal("5.0"),
+        spec_max_foreign=Decimal("3.0"),
+    )
+    base.update(overrides)
+    return SaleRow(**base)
+
+
 @pytest.fixture
 def busy(factory, rules, corn_ticket):
     with unit_of_work(factory) as uow:
@@ -119,22 +143,45 @@ def test_deferred_bushels_come_back_into_the_net_long(busy):
 
 
 def test_shipping_takes_bushels_off_what_is_on_hand(busy):
+    from bushelworks.services.shipping import load_out
+
     with unit_of_work(busy) as uow:
-        plain = line_for(uow, "CORN", AS_OF)
-        shipped = line_for(uow, "CORN", AS_OF, shipped=Decimal("1000"))
-    assert shipped.on_hand == plain.on_hand - Decimal("1000")
+        before = line_for(uow, "CORN", AS_OF)
+        uow.session.add(a_sale())
+        uow.flush()
+        load_out(uow, "S-2024-0088", "CAR-1", Decimal("56000"), date(2024, 10, 25))
+        after = line_for(uow, "CORN", AS_OF)
+    assert after.on_hand == before.on_hand - Decimal("1000.0000")
 
 
 def test_on_hand_never_goes_negative(busy):
+    from bushelworks.services.shipping import load_out
+
     with unit_of_work(busy) as uow:
-        line = line_for(uow, "CORN", AS_OF, shipped=Decimal("999999"))
+        uow.session.add(a_sale(bushels=Decimal("100000")))
+        uow.flush()
+        load_out(uow, "S-2024-0088", "CAR-1", Decimal("5600000"), date(2024, 10, 25))
+        line = line_for(uow, "CORN", AS_OF)
     assert line.on_hand == Decimal("0")
 
 
-def test_a_sale_makes_the_house_short(busy):
+def test_an_open_sale_makes_the_house_short(busy):
     with unit_of_work(busy) as uow:
-        line = line_for(uow, "CORN", AS_OF, sold_forward=Decimal("100000"))
+        uow.session.add(a_sale(bushels=Decimal("100000")))
+        uow.flush()
+        line = line_for(uow, "CORN", AS_OF)
+    assert line.sold_forward == Decimal("100000.0000")
     assert line.is_short
+
+
+def test_a_sale_outside_the_window_is_not_counted(busy):
+    with unit_of_work(busy) as uow:
+        uow.session.add(
+            a_sale(window_opens=date(2025, 1, 1), window_closes=date(2025, 3, 31))
+        )
+        uow.flush()
+        line = line_for(uow, "CORN", AS_OF)
+    assert line.sold_forward == Decimal("0.0000")
 
 
 def test_the_report_skips_commodities_with_nothing_in_them(busy):

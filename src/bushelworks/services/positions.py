@@ -4,11 +4,12 @@ The position report is the one number the manager looks at before he answers the
 telephone to the terminal, and it is assembled from five places that each know
 part of it:
 
-* tickets received, less what has been shipped, is what is physically on hand
+* tickets received, less what has been shipped out, is what is physically on
+  hand
 * open storage lots are what the house owes producers in grain
 * open deferred price lots are what the house owns but has not paid for
 * open purchase contracts are bushels bought and not yet delivered
-* open sale contracts are bushels sold and not yet shipped
+* open sale contracts are bushels sold and not yet loaded
 
 Getting the sign of the third one wrong is the classic mistake and the reason
 the domain object splits ``owned`` from ``net_long``.
@@ -33,6 +34,7 @@ from ..persistence.models import (
 )
 from ..persistence.unitofwork import UnitOfWork
 from ..units import BUSHEL_PLACES, pounds_to_bushels, quantize
+from .shipping import shipped_bushels, sold_forward
 
 
 def received_bushels(
@@ -119,20 +121,20 @@ def line_for(
     commodity_code: str,
     as_of: date,
     location_code: str = "*",
-    sold_forward: Decimal = Decimal("0"),
     in_transit: Decimal = Decimal("0"),
-    shipped: Decimal = Decimal("0"),
 ) -> PositionLine:
     """One commodity at one site on one day.
 
-    ``sold_forward`` and ``shipped`` come in from outside because the sale side
-    lives on the terminal's paperwork rather than in this database yet. They are
-    arguments rather than zeroes so the report is honest about what it does not
-    know.
+    The sale side used to come in as arguments because sales lived on the
+    terminal's paperwork. They are on file now, so the line is assembled whole
+    and the caller cannot hand it a figure that disagrees with the sale
+    contracts. ``in_transit`` is still an argument: grain on a barge between two
+    of the house's own sites has no document in this database.
     """
     site = None if location_code == "*" else location_code
     received = received_bushels(uow, commodity_code, as_of, site)
-    on_hand = quantize(received - Decimal(shipped), BUSHEL_PLACES)
+    shipped = shipped_bushels(uow, commodity_code, as_of, site)
+    on_hand = quantize(received - shipped, BUSHEL_PLACES)
     return PositionLine(
         as_of=as_of,
         commodity_code=commodity_code,
@@ -141,7 +143,7 @@ def line_for(
         storage_obligation=_open_lot_bushels(uow, commodity_code, as_of, False, site),
         deferred_price=_open_lot_bushels(uow, commodity_code, as_of, True, site),
         purchased_forward=contracted_bushels(uow, commodity_code, as_of, site),
-        sold_forward=Decimal(sold_forward),
+        sold_forward=sold_forward(uow, commodity_code, as_of, site),
         in_transit=Decimal(in_transit),
     )
 
