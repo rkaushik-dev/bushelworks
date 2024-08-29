@@ -21,12 +21,20 @@ from ..domain.contracts import (
     PurchaseContract,
 )
 from ..domain.pricing import MONTH_CODES, FuturesMonth
+from ..domain.sales import (
+    Carrier,
+    Destination,
+    SaleContract,
+    SaleKind,
+    Specification,
+)
 from ..domain.settlement import LineKind, Settlement, SettlementLine
 from ..domain.tickets import Disposition, ScaleTicket, SplitRole, SplitShare
 from ..errors import ValidationError
 from .base import as_decimal
 from .models import (
     ContractRow,
+    SaleRow,
     SampleRow,
     ScaleTicketRow,
     SettlementLineRow,
@@ -182,6 +190,61 @@ def contract_to_row(contract: PurchaseContract) -> ContractRow:
         tolerance_percent=contract.tolerance_percent,
         service_rate_per_bushel=contract.service_rate_per_bushel,
         status=contract.status.value,
+    )
+
+
+def sale_from_row(row: SaleRow) -> SaleContract:
+    return SaleContract(
+        number=row.number,
+        kind=SaleKind(row.kind),
+        buyer=row.buyer,
+        destination=Destination(row.destination),
+        carrier=Carrier(row.carrier),
+        commodity_code=row.commodity_code,
+        origin_code=row.origin_code,
+        written_on=row.written_on,
+        bushels=as_decimal(row.bushels),
+        window=DeliveryWindow(row.window_opens, row.window_closes),
+        specification=Specification(
+            max_moisture=as_decimal(row.spec_max_moisture),
+            min_test_weight=as_decimal(row.spec_min_test_weight),
+            max_damage=as_decimal(row.spec_max_damage),
+            max_foreign_material=as_decimal(row.spec_max_foreign),
+        ),
+        futures_month=futures_month_from_symbol(row.futures_symbol, row.commodity_code),
+        futures_price=None if row.futures_price is None else as_decimal(row.futures_price),
+        basis=None if row.basis is None else as_decimal(row.basis),
+        flat_price=None if row.flat_price is None else as_decimal(row.flat_price),
+        tolerance_percent=as_decimal(row.tolerance_percent),
+        freight_per_bushel=as_decimal(row.freight_per_bushel),
+        shipped=as_decimal(row.shipped),
+    )
+
+
+def sale_to_row(sale: SaleContract) -> SaleRow:
+    return SaleRow(
+        number=sale.number,
+        kind=sale.kind.value,
+        buyer=sale.buyer,
+        destination=sale.destination.value,
+        carrier=sale.carrier.value,
+        commodity_code=sale.commodity_code,
+        origin_code=sale.origin_code,
+        written_on=sale.written_on,
+        bushels=sale.bushels,
+        shipped=sale.shipped,
+        window_opens=sale.window.opens,
+        window_closes=sale.window.closes,
+        futures_symbol=None if sale.futures_month is None else sale.futures_month.symbol,
+        futures_price=sale.futures_price,
+        basis=sale.basis,
+        flat_price=sale.flat_price,
+        tolerance_percent=sale.tolerance_percent,
+        freight_per_bushel=sale.freight_per_bushel,
+        spec_max_moisture=sale.specification.max_moisture,
+        spec_min_test_weight=sale.specification.min_test_weight,
+        spec_max_damage=sale.specification.max_damage,
+        spec_max_foreign=sale.specification.max_foreign_material,
     )
 
 
