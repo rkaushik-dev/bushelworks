@@ -3,7 +3,8 @@ from decimal import Decimal
 import pytest
 from click.testing import CliRunner
 
-from bushelworks.cli.main import DECIMAL, cli
+from bushelworks.cli.context import DECIMAL
+from bushelworks.cli.main import cli
 from bushelworks.persistence.base import create_all, engine_for, session_factory
 from bushelworks.persistence.unitofwork import unit_of_work
 from bushelworks.services.scalehouse import record_load
@@ -124,7 +125,7 @@ def test_settle_can_be_quiet(runner, loaded):
         ],
     )
     assert result.exit_code == 0
-    assert result.output.startswith("S-2024-0001  net ")
+    assert result.output.strip().endswith("S-2024-0001  net 7586.79")
 
 
 def test_settling_a_producer_with_nothing_waiting_exits_non_zero(runner, database):
