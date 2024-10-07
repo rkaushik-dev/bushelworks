@@ -62,6 +62,7 @@ def create_app(
 
     from .routers import (
         contracts_router,
+        parties_router,
         positions_router,
         sales_router,
         settlements_router,
@@ -75,6 +76,7 @@ def create_app(
     app.include_router(storage_router)
     app.include_router(positions_router)
     app.include_router(sales_router)
+    app.include_router(parties_router)
     return app
 
 
