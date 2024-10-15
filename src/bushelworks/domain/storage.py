@@ -89,6 +89,52 @@ class StorageRate:
     def in_charge(self, bushels: Decimal) -> Decimal:
         return extend(Decimal(bushels), self.in_charge_per_bushel)
 
+    def charge_between(
+        self,
+        bushels: Decimal,
+        stored_on: date,
+        billed_through: date | None,
+        through: date,
+    ) -> Decimal:
+        """Storage for one billing period, on the bushels open during it.
+
+        Not the difference between two charges measured from receipt. That is
+        what this used to be, and it under recovers whenever bushels leave the
+        lot between runs: the already billed half is recomputed on the smaller
+        balance, comes out lower than what was actually charged, and the
+        difference disappears.
+
+        Charging the period directly is right in both cases and is what the
+        tariff says: so many bushels, for so many days.
+        """
+        if bushels < 0:
+            raise StorageError("cannot charge storage on negative bushels")
+        if billed_through is None:
+            return self.charge(bushels, stored_on, through)
+        if through <= billed_through:
+            return amount("0.00")
+
+        days = self.chargeable_days(stored_on, through) - self.chargeable_days(
+            stored_on, billed_through
+        )
+        if days <= 0:
+            return amount("0.00")
+        months = self._months_for(days, stored_on, billed_through, through)
+        if months <= 0:
+            return amount("0.00")
+        gross = extend(Decimal(bushels), self.rate_per_bushel_per_month * months)
+        return amount(max(gross, self.minimum_charge))
+
+    def _months_for(
+        self, days: int, stored_on: date, billed_through: date, through: date
+    ) -> Decimal:
+        """The period's length in whatever unit this accrual method counts in."""
+        if self.method is AccrualMethod.DAILY:
+            return quantize(Decimal(days) / DAYS_PER_MONTH, Decimal("0.000001"))
+        return self.chargeable_months(stored_on, through) - self.chargeable_months(
+            stored_on, billed_through
+        )
+
 
 def _calendar_months(stored_on: date, through: date, free_days: int) -> int:
     """Whole calendar months touched, counted from the end of the free period."""

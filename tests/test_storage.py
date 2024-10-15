@@ -103,6 +103,59 @@ def test_a_negative_rate_is_refused():
         StorageRate(commodity_code="CORN", rate_per_bushel_per_month=Decimal("-0.01"))
 
 
+def test_a_first_period_charges_from_receipt():
+    assert DAILY.charge_between(
+        Decimal("10000"), RECEIVED, None, date(2024, 12, 14)
+    ) == Decimal("450.00")
+
+
+def test_a_later_period_charges_only_its_own_days():
+    assert DAILY.charge_between(
+        Decimal("10000"), RECEIVED, date(2024, 12, 14), date(2025, 1, 13)
+    ) == Decimal("450.00")
+
+
+def test_a_period_that_has_already_been_billed_charges_nothing():
+    assert DAILY.charge_between(
+        Decimal("10000"), RECEIVED, date(2024, 12, 14), date(2024, 12, 14)
+    ) == Decimal("0.00")
+    assert DAILY.charge_between(
+        Decimal("10000"), RECEIVED, date(2024, 12, 14), date(2024, 12, 1)
+    ) == Decimal("0.00")
+
+
+def test_a_period_wholly_inside_the_free_days_charges_nothing():
+    assert DAILY.charge_between(
+        Decimal("10000"), RECEIVED, date(2024, 10, 20), date(2024, 11, 1)
+    ) == Decimal("0.00")
+
+
+def test_bushels_leaving_between_runs_do_not_erase_what_was_billed():
+    # Billed 10000 bushels to 14 December, then half the lot goes out. The
+    # next run charges the remaining 5000 for its own thirty days and does not
+    # go back and recompute the first period at the smaller balance.
+    second = DAILY.charge_between(
+        Decimal("5000"), RECEIVED, date(2024, 12, 14), date(2025, 1, 13)
+    )
+    assert second == Decimal("225.00")
+
+
+def test_the_anniversary_method_counts_whole_months_per_period():
+    first = ANNIVERSARY.charge_between(
+        Decimal("10000"), RECEIVED, None, date(2024, 12, 14)
+    )
+    second = ANNIVERSARY.charge_between(
+        Decimal("10000"), RECEIVED, date(2024, 12, 14), date(2025, 1, 13)
+    )
+    assert first == Decimal("450.00")
+    assert second == Decimal("450.00")
+
+
+def test_charging_a_period_on_negative_bushels_is_refused():
+    with pytest.raises(StorageError):
+        DAILY.charge_between(Decimal("-1"), RECEIVED, None, date(2024, 12, 14))
+
+
 def lot(lot_id, bushels, stored_on) -> StorageLot:
     return StorageLot(
         lot_id=lot_id,

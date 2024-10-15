@@ -234,13 +234,15 @@ def accrue(
 
 
 def _accrual_between(rate: StorageRate, row: StorageLotRow, through: date) -> Decimal:
-    """Charge to ``through`` less whatever was charged to ``billed_through``."""
-    total = rate.charge(row.open_bushels, row.stored_on, through)
-    if row.billed_through is None:
-        return total
-    already = rate.charge(row.open_bushels, row.stored_on, row.billed_through)
-    difference = amount(total - already)
-    return difference if difference > 0 else amount("0.00")
+    """Storage for the period since the lot was last billed.
+
+    Was the difference between two charges measured from receipt, which under
+    recovered whenever bushels left the lot between runs. The tariff charges a
+    balance for a span of days and that is what this asks for now.
+    """
+    return rate.charge_between(
+        row.open_bushels, row.stored_on, row.billed_through, through
+    )
 
 
 def issue_receipt(

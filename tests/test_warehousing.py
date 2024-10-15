@@ -182,6 +182,39 @@ def test_the_accrual_accumulates_on_the_lot(stocked, house):
         assert lot(uow, "L-1").billed_through == date(2025, 1, 13)
 
 
+def test_bushels_leaving_between_runs_do_not_reduce_what_was_billed(stocked, house):
+    """The regression that made the house give storage away.
+
+    Bill the lot, take half of it out, bill again. The second run has to charge
+    the remaining balance for the new period. It used to compute the whole
+    charge from receipt on the smaller balance, subtract what it had already
+    billed on the larger one, get a negative number and floor it to nothing.
+    """
+    with unit_of_work(stocked) as uow:
+        accrue(uow, house, date(2024, 12, 14))
+        uow.commit()
+    with unit_of_work(stocked) as uow:
+        withdraw(uow, "MERRICK", "CORN", Decimal("4000"), date(2024, 12, 15))
+        uow.commit()
+    with unit_of_work(stocked) as uow:
+        run = accrue(uow, house, date(2025, 1, 13))
+        uow.commit()
+    charged = {line.lot_id: line.dollars for line in run.lines}
+    assert charged["L-1"] == Decimal("180.00")
+
+
+def test_the_earlier_billing_is_still_on_the_lot_afterwards(stocked, house):
+    with unit_of_work(stocked) as uow:
+        accrue(uow, house, date(2024, 12, 14))
+        uow.commit()
+    with unit_of_work(stocked) as uow:
+        withdraw(uow, "MERRICK", "CORN", Decimal("4000"), date(2024, 12, 15))
+        accrue(uow, house, date(2025, 1, 13))
+        uow.commit()
+    with unit_of_work(stocked) as uow:
+        assert lot(uow, "L-1").accrued_to_date == Decimal("684.00")
+
+
 def test_a_dry_run_does_not_move_the_billed_through(stocked, house):
     with unit_of_work(stocked) as uow:
         accrue(uow, house, date(2024, 12, 14), record=False)
