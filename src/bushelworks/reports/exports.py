@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Iterable, Sequence
 from datetime import date
 from decimal import Decimal
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from ..domain.settlement import Settlement
 from ..errors import ValidationError

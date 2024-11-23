@@ -180,7 +180,7 @@ class SaleContract:
             return False
         return self.shipped + Decimal(bushels) <= self.maximum_bushels
 
-    def ship(self, bushels: Decimal, on: date) -> "SaleContract":
+    def ship(self, bushels: Decimal, on: date) -> SaleContract:
         wanted = quantize(Decimal(bushels), BUSHEL_PLACES)
         if wanted <= 0:
             raise SaleError(f"{self.number}: cannot ship {wanted} bushels")
@@ -195,7 +195,7 @@ class SaleContract:
             )
         return replace(self, shipped=quantize(self.shipped + wanted, BUSHEL_PLACES))
 
-    def set_futures(self, futures: Decimal) -> "SaleContract":
+    def set_futures(self, futures: Decimal) -> SaleContract:
         if self.kind is not SaleKind.BASIS:
             raise SaleError(f"{self.number}: only a basis sale sets futures later")
         if self.futures_price is not None:

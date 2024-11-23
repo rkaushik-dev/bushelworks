@@ -17,9 +17,9 @@ the licence cares about.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
-from typing import Mapping
 
 from ..errors import ConflictError, ValidationError
 from ..units import BUSHEL_PLACES, quantize
@@ -98,7 +98,7 @@ class Bin:
         commodity_code: str,
         bushels: Decimal,
         sample: Mapping[Factor, Decimal],
-    ) -> "Bin":
+    ) -> Bin:
         """Put a load in, blending it with what is already there."""
         wanted = quantize(Decimal(bushels), BUSHEL_PLACES)
         if wanted <= 0:
@@ -120,7 +120,7 @@ class Bin:
             sample=_blend(self.sample, self.bushels, sample, wanted),
         )
 
-    def draw(self, bushels: Decimal) -> "Bin":
+    def draw(self, bushels: Decimal) -> Bin:
         """Take grain out. What is left tests the same as what came out."""
         wanted = quantize(Decimal(bushels), BUSHEL_PLACES)
         if wanted <= 0:
@@ -134,14 +134,14 @@ class Bin:
             return replace(self, bushels=Decimal("0"), commodity_code=None, sample={})
         return replace(self, bushels=left)
 
-    def take_out_of_service(self, reason: str) -> "Bin":
+    def take_out_of_service(self, reason: str) -> Bin:
         if not reason:
             raise BinError(f"{self.bin_id}: needs a reason")
         if self.out_of_service:
             raise ConflictError(f"{self.bin_id} is already out of service")
         return replace(self, out_of_service=True)
 
-    def return_to_service(self) -> "Bin":
+    def return_to_service(self) -> Bin:
         if not self.out_of_service:
             raise ConflictError(f"{self.bin_id} is already in service")
         return replace(self, out_of_service=False)

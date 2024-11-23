@@ -12,7 +12,8 @@ from typing import Any
 
 import click
 
-from ..reports.position import hedge_sheet, render as render_board, to_csv
+from ..reports.position import hedge_sheet, to_csv
+from ..reports.position import render as render_board
 from ..services.payments import run_cheques
 from ..services.positions import build_report
 from ..services.warehousing import accrue, on_hand, open_lots

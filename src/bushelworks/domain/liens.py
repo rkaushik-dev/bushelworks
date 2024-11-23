@@ -135,7 +135,9 @@ def split_payment(
     for one in live:
         if one.kind is not LienKind.ASSIGNMENT or remaining <= 0:
             continue
-        take = amount(min(one.amount_limit, remaining))
+        # An assignment always has a limit; the constructor refuses one without.
+        limit = one.amount_limit or Decimal("0")
+        take = amount(min(limit, remaining))
         if take <= 0:
             continue
         payments.append(

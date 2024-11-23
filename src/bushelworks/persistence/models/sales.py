@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..base import Base, BUSHELS, MONEY, PERCENT, POUNDS, PRICE
+from ..base import BUSHELS, MONEY, PERCENT, POUNDS, PRICE, Base
 from .reference import TimestampMixin
 
 
@@ -75,7 +75,7 @@ class SaleRow(Base, TimestampMixin):
     spec_max_foreign: Mapped[Decimal] = mapped_column(PERCENT, nullable=False)
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="open")
 
-    shipments: Mapped[list["ShipmentRow"]] = relationship(
+    shipments: Mapped[list[ShipmentRow]] = relationship(
         back_populates="sale",
         cascade="all, delete-orphan",
         lazy="selectin",

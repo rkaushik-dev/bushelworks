@@ -94,7 +94,7 @@ class Truck:
             raise DrivewayError(f"{self.truck_id}: {now} is before it arrived")
         return now - self.arrived_at
 
-    def advance(self, to: Stage, probe_id: str | None = None) -> "Truck":
+    def advance(self, to: Stage, probe_id: str | None = None) -> Truck:
         if to not in NEXT[self.stage]:
             raise ConflictError(
                 f"{self.truck_id} is {self.stage.value} and cannot go to {to.value}"
@@ -126,10 +126,10 @@ class Driveway:
         self, truck_id: str, to: Stage, probe_id: str | None = None
     ) -> Truck:
         moved = self.get(truck_id).advance(to, probe_id)
-        if to is Stage.ON_SCALE and self.on_scale() is not None:
-            raise ConflictError(
-                f"{self.on_scale().truck_id} is already on the scale"
-            )
+        if to is Stage.ON_SCALE:
+            occupant = self.on_scale()
+            if occupant is not None:
+                raise ConflictError(f"{occupant.truck_id} is already on the scale")
         self._trucks[truck_id] = moved
         if moved.stage is Stage.DONE:
             del self._trucks[truck_id]

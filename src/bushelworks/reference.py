@@ -86,6 +86,8 @@ def discount_reference(commodity_code: str) -> str:
     lines = ["| factor | starts at | rate | per | mode |", "| --- | --- | --- | --- | --- |"]
     for factor in factors:
         schedule = book.for_factor(commodity_code, factor)
+        if schedule is None:
+            continue
         band = schedule.bands[0]
         lines.append(
             f"| {factor.value.replace('_', ' ')} | {band.start} | {band.rate} | "

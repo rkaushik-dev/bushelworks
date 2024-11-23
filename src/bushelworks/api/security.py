@@ -96,7 +96,7 @@ def resolve(settings: Settings, presented: str | None) -> Caller:
         raise NotAuthorised("this house requires an X-API-Key header")
     for secret, role in settings.key_roles.items():
         if secrets.compare_digest(secret, presented):
-            return Caller(key_id=secret[:4] + "...", role=role)
+            return Caller(key_id=secret[:4] + "...", role=Role(role))
     raise NotAuthorised("that API key is not on file")
 
 

@@ -126,7 +126,7 @@ class Advance:
             return False
         return on > self.due_on
 
-    def repay(self, settlement_number: str, dollars: Decimal, on: date) -> "Advance":
+    def repay(self, settlement_number: str, dollars: Decimal, on: date) -> Advance:
         wanted = amount(dollars)
         if wanted <= 0:
             raise AdvanceError(f"{self.reference}: cannot repay {wanted}")

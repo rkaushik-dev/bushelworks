@@ -13,7 +13,7 @@ the nine o'clock board still on file.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from ..domain.pricing import CashBid, FuturesMonth, PricingError
@@ -121,7 +121,7 @@ class Board:
         posting = Posting(
             slot=slot,
             bid=bid,
-            posted_at=posted_at or datetime.now(timezone.utc),
+            posted_at=posted_at or datetime.now(UTC),
             posted_by=posted_by,
         )
         self._postings.append(posting)

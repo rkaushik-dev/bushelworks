@@ -21,11 +21,11 @@ thing as "US No. 2 Yellow Corn".
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Mapping
 
 from ..errors import ValidationError
 from .commodity import Factor

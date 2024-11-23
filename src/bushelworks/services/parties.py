@@ -191,9 +191,14 @@ def agreement_for(uow: UnitOfWork, farm_code: str, on: date) -> Agreement:
     if not live:
         raise NoSplitAgreement(f"no split on file for {farm_code} on {on}")
 
-    codes = {
-        row.party_id: uow.session.get(Party, row.party_id).code for row in live
-    }
+    codes: dict[int, str] = {}
+    for row in live:
+        party = uow.session.get(Party, row.party_id)
+        if party is None:
+            raise NoSplitAgreement(
+                f"{farm_code}: the agreement names a party that is no longer on file"
+            )
+        codes[row.party_id] = party.code
     shares = tuple(
         SplitShare(
             party_id=codes[row.party_id],

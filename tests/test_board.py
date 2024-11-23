@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -19,9 +19,9 @@ HARVEST = Slot("CORN", "harvest", "HOME")
 DEFERRED = Slot("CORN", "january", "HOME")
 QUOTED = date(2024, 10, 3)
 
-NINE = datetime(2024, 10, 3, 9, 0, tzinfo=timezone.utc)
-TEN = datetime(2024, 10, 3, 10, 0, tzinfo=timezone.utc)
-NOON = datetime(2024, 10, 3, 12, 0, tzinfo=timezone.utc)
+NINE = datetime(2024, 10, 3, 9, 0, tzinfo=UTC)
+TEN = datetime(2024, 10, 3, 10, 0, tzinfo=UTC)
+NOON = datetime(2024, 10, 3, 12, 0, tzinfo=UTC)
 
 
 def a_board() -> Board:
@@ -126,7 +126,7 @@ def test_the_board_can_be_asked_what_it_said_at_a_moment():
 
 def test_nothing_was_posted_before_the_first_bid():
     board = a_board()
-    assert board.as_at(HARVEST, datetime(2024, 10, 3, 8, tzinfo=timezone.utc)) is None
+    assert board.as_at(HARVEST, datetime(2024, 10, 3, 8, tzinfo=UTC)) is None
 
 
 def test_a_wild_move_is_refused_unless_it_is_confirmed():

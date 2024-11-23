@@ -116,7 +116,7 @@ class FeedAccount:
     def charges(self) -> Decimal:
         return amount(sum((item.charge for item in self.movements), Decimal("0")))
 
-    def deposit(self, reference: str, bushels: Decimal, on: date) -> "FeedAccount":
+    def deposit(self, reference: str, bushels: Decimal, on: date) -> FeedAccount:
         if self.is_converted:
             raise ConflictError(
                 f"{self.party_code}: the account was converted on {self.converted_on}"
@@ -131,7 +131,7 @@ class FeedAccount:
 
     def withdraw(
         self, reference: str, ration: Ration, tons: Decimal, on: date
-    ) -> "FeedAccount":
+    ) -> FeedAccount:
         if self.is_converted:
             raise ConflictError(
                 f"{self.party_code}: the account was converted on {self.converted_on}"
@@ -156,7 +156,7 @@ class FeedAccount:
             ),
         )
 
-    def convert_to_storage(self, on: date) -> "FeedAccount":
+    def convert_to_storage(self, on: date) -> FeedAccount:
         """Close the feed account so the balance can be priced.
 
         A decision with a date, because it changes what the bushels are: before

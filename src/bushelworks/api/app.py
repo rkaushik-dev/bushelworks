@@ -11,6 +11,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from time import perf_counter
+from typing import Any
 
 from fastapi import FastAPI, Request
 from sqlalchemy.orm import Session, sessionmaker
@@ -99,7 +100,7 @@ def _install_request_id(app: FastAPI) -> None:
     logger = get_logger("api")
 
     @app.middleware("http")
-    async def _stamp(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def _stamp(request: Request, call_next: Any) -> Any:
         incoming = request.headers.get("x-request-id")
         request_id = incoming or uuid.uuid4().hex[:16]
         request.state.request_id = request_id

@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import Any
 
 from .errors import ConfigurationError
 
@@ -107,7 +108,7 @@ class Settings:
         return bool(self.api_keys)
 
     @property
-    def key_roles(self) -> dict[str, str]:
+    def key_roles(self) -> dict[str, Any]:
         """Each configured key mapped to the role it carries.
 
         Parsed on demand rather than at load time so the settings object stays

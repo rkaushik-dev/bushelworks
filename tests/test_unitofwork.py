@@ -70,7 +70,29 @@ def test_the_unit_of_work_closes_itself(factory, corn_ticket):
         uow.tickets.add(corn_ticket, "MERRICK")
         uow.commit()
     assert not uow.is_open
-    assert uow.tickets is None
+
+
+def test_reaching_for_a_repository_outside_the_block_says_so(factory):
+    with unit_of_work(factory) as uow:
+        pass
+    with pytest.raises(ConflictError) as caught:
+        uow.tickets.exists("HOME", "A-10441")
+    assert "open unit of work" in str(caught.value)
+
+
+def test_reaching_for_the_session_outside_the_block_says_so(factory):
+    with unit_of_work(factory) as uow:
+        pass
+    with pytest.raises(ConflictError):
+        uow.session.execute(select(ScaleTicketRow))
+
+
+def test_every_repository_is_reachable_inside_the_block(factory):
+    with unit_of_work(factory) as uow:
+        assert uow.tickets is not None
+        assert uow.contracts is not None
+        assert uow.settlements is not None
+        assert uow.parties is not None
 
 
 def test_committing_after_the_block_is_refused(factory):

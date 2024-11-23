@@ -49,10 +49,8 @@ class Base(DeclarativeBase):
     metadata = metadata
 
     def __repr__(self) -> str:
-        columns = ", ".join(
-            f"{c.name}={getattr(self, c.name)!r}"
-            for c in self.__table__.primary_key.columns
-        )
+        names = [column.name for column in self.__table__.primary_key]
+        columns = ", ".join(f"{name}={getattr(self, name)!r}" for name in names)
         return f"<{type(self).__name__} {columns}>"
 
 
@@ -77,7 +75,7 @@ def _enable_sqlite_foreign_keys(engine: Engine) -> None:
     """SQLite ignores foreign keys unless told not to, once per connection."""
 
     @event.listens_for(engine, "connect")
-    def _set_pragma(dbapi_connection, _record):  # type: ignore[no-untyped-def]
+    def _set_pragma(dbapi_connection: Any, _record: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()

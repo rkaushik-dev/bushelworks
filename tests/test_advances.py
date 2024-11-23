@@ -147,7 +147,7 @@ def test_a_repaid_advance_is_never_overdue():
 def test_the_cap_is_a_percentage_of_the_grain_value():
     assert cap_for(Decimal("10000.00")) == Decimal("8000.00")
     assert cap_for(Decimal("10000.00"), Decimal("50")) == Decimal("5000.00")
-    assert SETTLEMENT_ADVANCE_CAP == Decimal("80")
+    assert Decimal("80") == SETTLEMENT_ADVANCE_CAP
 
 
 def test_a_negative_grain_value_cannot_be_advanced_against():

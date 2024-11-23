@@ -48,7 +48,7 @@ def test_negative_processing_is_refused():
 def test_cracked_corn_takes_a_ton_of_corn_plus_the_mill_shrink():
     # 2000 lb of corn plus 0.5 percent, over 56 lb a bushel
     assert CRACK.bushels_for(Decimal("1")) == Decimal("35.8929")
-    assert MILL_SHRINK_PERCENT == Decimal("0.5")
+    assert Decimal("0.5") == MILL_SHRINK_PERCENT
 
 
 def test_a_leaner_ration_takes_fewer_bushels():
