@@ -6,6 +6,7 @@ modules, and everything still imports from ``bushelworks.persistence.models``.
 """
 
 from .audit import AuditRow
+from .bins import BinReadingRow, BinRow
 from .reference import (
     CommodityRow,
     CounterRow,
@@ -36,6 +37,8 @@ from .trading import (
 __all__ = [
     "ApplicationRow",
     "AuditRow",
+    "BinReadingRow",
+    "BinRow",
     "CommodityRow",
     "CounterRow",
     "ContractRow",
