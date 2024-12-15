@@ -41,6 +41,25 @@ def init_db(ctx: Context) -> None:
     click.echo(f"schema built at {ctx.settings.database_url}")
 
 
+@cli.command("seed")
+@click.option(
+    "--force/--no-force",
+    default=False,
+    help="Seed even if there is already a producer file here.",
+)
+@pass_context
+@handle_errors
+def seed_house(ctx: Context, force: bool) -> None:
+    """Fill an empty database with a week of a working elevator."""
+    from ..services.seeding import describe, seed
+
+    with ctx.unit_of_work() as uow:
+        result = seed(uow, ctx.rules, force=force)
+        summary = describe(result)
+        uow.commit()
+    click.echo(summary)
+
+
 for command in (*grain.COMMANDS, *yard.COMMANDS):
     cli.add_command(command)
 
