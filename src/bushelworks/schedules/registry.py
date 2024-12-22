@@ -64,11 +64,20 @@ class Version(Generic[T]):
 
 
 class ScheduleRegistry(Generic[T]):
-    """Versions of one kind of schedule, keyed by commodity."""
+    """Versions of one kind of schedule, keyed by commodity.
+
+    Resolution is cached. A settlement run resolves the same shrink table once
+    per ticket and a nine hundred ticket day was walking the version list nine
+    hundred times for an answer that cannot change: the registry is filed at
+    start up and nothing in a request path adds to it. Filing invalidates the
+    cache, so the tests that file mid run still see what they filed.
+    """
 
     def __init__(self, kind: str) -> None:
         self.kind = kind
         self._versions: dict[str, list[Version[T]]] = {}
+        self._resolved: dict[tuple[str, date, str], Version[T]] = {}
+        self._misses: set[tuple[str, date, str]] = set()
 
     def file(self, commodity_code: str, version: Version[T]) -> None:
         """Add a version.
@@ -97,6 +106,12 @@ class ScheduleRegistry(Generic[T]):
             )
         bucket.append(version)
         bucket.sort(key=lambda v: (v.effective_from, v.location_code))
+        self.invalidate()
+
+    def invalidate(self) -> None:
+        """Throw the resolution cache away. Called on every filing."""
+        self._resolved.clear()
+        self._misses.clear()
 
     def file_all(self, commodity_code: str, versions: Iterable[Version[T]]) -> None:
         for version in versions:
@@ -112,6 +127,22 @@ class ScheduleRegistry(Generic[T]):
     def resolve_version(
         self, commodity_code: str, as_of: date, location_code: str = COMPANY_WIDE
     ) -> Version[T]:
+        key = (commodity_code, as_of, location_code)
+        cached = self._resolved.get(key)
+        if cached is not None:
+            return cached
+        if key in self._misses:
+            raise NoScheduleInEffect(
+                f"no {self.kind} filed for {commodity_code} at {location_code} "
+                f"on {as_of}"
+            )
+        found = self._resolve_uncached(commodity_code, as_of, location_code)
+        self._resolved[key] = found
+        return found
+
+    def _resolve_uncached(
+        self, commodity_code: str, as_of: date, location_code: str
+    ) -> Version[T]:
         bucket = self._versions.get(commodity_code, [])
         local = [v for v in bucket if v.location_code == location_code and v.covers(as_of)]
         if local:
@@ -122,9 +153,15 @@ class ScheduleRegistry(Generic[T]):
             if company:
                 return max(company, key=lambda v: v.effective_from)
 
+        self._misses.add((commodity_code, as_of, location_code))
         raise NoScheduleInEffect(
             f"no {self.kind} filed for {commodity_code} at {location_code} on {as_of}"
         )
+
+    @property
+    def cached(self) -> int:
+        """How many answers the cache is holding, for the tests."""
+        return len(self._resolved) + len(self._misses)
 
     def maybe_resolve(
         self, commodity_code: str, as_of: date, location_code: str = COMPANY_WIDE
