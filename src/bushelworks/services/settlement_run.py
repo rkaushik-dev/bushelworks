@@ -18,6 +18,7 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ..domain.rulebook import RuleBook
 from ..domain.settlement import LineKind, Settlement, SettlementBuilder
@@ -56,6 +57,55 @@ class SettledTicket:
     @property
     def gross(self) -> Decimal:
         return extend(self.load.settled_bushels, self.unit_price)
+
+
+def applications_for(
+    uow: UnitOfWork, ticket_ids: Sequence[int]
+) -> dict[int, list[ApplicationRow]]:
+    """Every live application for a run of tickets, in one query.
+
+    Pricing used to query per ticket and then fetch each contract on its own. A
+    nine load settlement was nineteen round trips for what is one join, and on
+    the office box over a network share that was most of the wall clock.
+    """
+    if not ticket_ids:
+        return {}
+    rows = uow.session.scalars(
+        select(ApplicationRow)
+        .where(
+            ApplicationRow.ticket_id.in_(list(ticket_ids)),
+            ApplicationRow.reversed_on.is_(None),
+        )
+        .options(selectinload(ApplicationRow.contract))
+    )
+    grouped: dict[int, list[ApplicationRow]] = {}
+    for row in rows:
+        grouped.setdefault(row.ticket_id, []).append(row)
+    return grouped
+
+
+def price_from(
+    applications: Sequence[ApplicationRow],
+    spot: Decimal,
+    settled_bushels: Decimal,
+) -> Decimal:
+    """Blend the contract prices a ticket landed on with spot for the rest."""
+    from ..domain.pricing import PricedQuantity, blend
+
+    if not applications:
+        return spot
+    lots = [
+        PricedQuantity(
+            as_decimal(application.bushels),
+            contract_from_row(application.contract).unit_price,
+        )
+        for application in applications
+    ]
+    contracted = sum((lot.bushels for lot in lots), Decimal("0"))
+    remainder = Decimal(settled_bushels) - contracted
+    if remainder > 0:
+        lots.append(PricedQuantity(remainder, spot))
+    return blend(lots)
 
 
 def price_of(
@@ -140,6 +190,7 @@ def settle_producer(
             f"{party_code} has nothing waiting to be settled at {location_code}"
         )
 
+    by_ticket = applications_for(uow, [row.id for row in rows])
     settled = []
     for row in rows:
         load = receive(ticket_from_row(row), rules)
@@ -148,7 +199,9 @@ def settle_producer(
                 ticket_id=row.id,
                 ticket_number=row.ticket_number,
                 load=load,
-                unit_price=price_of(row, uow, spot_price, load.settled_bushels),
+                unit_price=price_from(
+                    by_ticket.get(row.id, []), spot_price, load.settled_bushels
+                ),
             )
         )
 
