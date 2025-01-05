@@ -64,7 +64,34 @@ def test_health_answers_without_touching_the_database(client):
 def test_ready_opens_a_session(client):
     response = client.get("/ready")
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert response.json()["status"] == "ready"
+
+
+def test_a_schema_built_without_alembic_reports_unmanaged(client):
+    assert client.get("/ready").json()["schema"] == "unmanaged"
+
+
+def test_a_migrated_schema_reports_its_revision(tmp_path, monkeypatch):
+    from alembic import command
+    from alembic.config import Config
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    url = f"sqlite+pysqlite:///{tmp_path / 'ready.sqlite3'}"
+    monkeypatch.setenv("BUSHELWORKS_DATABASE_URL", url)
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    config.set_main_option("sqlalchemy.url", url)
+    command.upgrade(config, "head")
+
+    app = create_app(
+        settings=Settings(database_url=url),
+        factory=session_factory(engine_for(url)),
+    )
+    with TestClient(app) as client:
+        revision = client.get("/ready").json()["schema"]
+    assert revision not in ("unmanaged", "empty")
+    assert len(revision) == 12
 
 
 def test_every_response_carries_a_request_id(client):

@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,6 +57,28 @@ jobs:
           name: coverage
           path: coverage.xml
           if-no-files-found: error
+
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: build a house and settle a producer
+        env:
+          BUSHELWORKS_DATABASE_URL: sqlite+pysqlite:///demo.sqlite3
+        run: |
+          python -m bushelworks init-db
+          python -m bushelworks seed
+          python -m bushelworks tickets
+          python -m bushelworks settle MERRICK --location HOME --price 4.3500 --on 2024-10-20
+          python -m bushelworks position 2024-10-20
 
   migrations:
     runs-on: ubuntu-latest

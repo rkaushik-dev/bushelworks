@@ -132,6 +132,22 @@ def _install_request_id(app: FastAPI) -> None:
         return response
 
 
+def _schema_revision(session: Session) -> str:
+    """What alembic revision this database is at.
+
+    A schema built by ``create_all`` has no alembic table at all, which is the
+    normal state in the tests and on a scratch database. That is reported as
+    ``unmanaged`` rather than treated as a failure.
+    """
+    from sqlalchemy import text
+
+    try:
+        row = session.execute(text("SELECT version_num FROM alembic_version")).first()
+    except Exception:
+        return "unmanaged"
+    return row[0] if row else "empty"
+
+
 def _install_health(app: FastAPI) -> None:
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
@@ -140,10 +156,18 @@ def _install_health(app: FastAPI) -> None:
 
     @app.get("/ready", tags=["ops"])
     def ready() -> dict[str, str]:
-        """Readiness. Opens a session and runs the cheapest statement there is."""
+        """Readiness. Opens a session and asks what revision the schema is at.
+
+        The cheapest statement there is used to be enough. It is not: a box that
+        can reach the database but is a migration behind will take a ticket and
+        then fail to settle it, which is worse than refusing to start. The
+        revision comes back in the body so a deploy can be checked without
+        logging in.
+        """
         from sqlalchemy import text
 
         factory: sessionmaker[Session] = app.state.session_factory
         with factory() as session:
             session.execute(text("SELECT 1"))
-        return {"status": "ready"}
+            revision = _schema_revision(session)
+        return {"status": "ready", "schema": revision}

@@ -25,7 +25,11 @@ from bushelworks.persistence import models  # noqa: F401  registers the tables
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Not the generated default. ``fileConfig`` disables every logger it does
+    # not know about, and it does not know about ``bushelworks``: running a
+    # migration in process turned the application's logging off for the rest of
+    # the run, which took the settlement events with it.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = metadata
 

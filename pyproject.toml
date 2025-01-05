@@ -14,12 +14,12 @@ authors = [{ name = "rkaushik-dev" }]
 # year and a surprise minor version in the settlement path is not worth the
 # convenience of a range.
 dependencies = [
-  "SQLAlchemy==2.0.36",
-  "fastapi==0.115.5",
-  "pydantic==2.10.2",
-  "uvicorn[standard]==0.32.1",
-  "alembic==1.14.0",
-  "click==8.1.7",
+  "SQLAlchemy==2.0.38",
+  "fastapi==0.115.8",
+  "pydantic==2.10.6",
+  "uvicorn[standard]==0.34.0",
+  "alembic==1.14.1",
+  "click==8.1.8",
 ]
 
 [project.scripts]
@@ -27,12 +27,12 @@ bushelworks = "bushelworks.cli.main:main"
 
 [project.optional-dependencies]
 dev = [
-  "pytest==8.3.3",
+  "pytest==8.3.4",
   "pytest-cov==6.0.0",
-  "hypothesis==6.119.4",
-  "httpx==0.28.0",
-  "ruff==0.8.1",
-  "mypy==1.13.0",
+  "hypothesis==6.125.3",
+  "httpx==0.28.1",
+  "ruff==0.9.6",
+  "mypy==1.15.0",
 ]
 
 [tool.setuptools.dynamic]
