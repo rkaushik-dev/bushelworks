@@ -63,6 +63,7 @@ def create_app(
 
     from .routers import (
         contracts_router,
+        deferred_router,
         ops_router,
         parties_router,
         positions_router,
@@ -80,6 +81,7 @@ def create_app(
     app.include_router(sales_router)
     app.include_router(parties_router)
     app.include_router(ops_router)
+    app.include_router(deferred_router)
     return app
 
 
