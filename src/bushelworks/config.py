@@ -63,6 +63,9 @@ DEFAULT_STATEMENT_PREFIX = "S"
 DEFAULT_TICKET_PREFIX = "A"
 DEFAULT_MAX_PAGE_SIZE = 200
 DEFAULT_LOG_LEVEL = "INFO"
+# Calls a minute per caller. Zero turns the limit off, which is what a house
+# with only a scale house terminal and an office wants.
+DEFAULT_RATE_LIMIT = 0
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 
@@ -79,6 +82,7 @@ class Settings:
     ticket_prefix: str = DEFAULT_TICKET_PREFIX
     max_page_size: int = DEFAULT_MAX_PAGE_SIZE
     log_level: str = DEFAULT_LOG_LEVEL
+    rate_limit_per_minute: int = DEFAULT_RATE_LIMIT
     api_keys: frozenset[str] = field(default_factory=frozenset)
     minimum_settlement: Decimal = Decimal("0.00")
 
@@ -94,6 +98,8 @@ class Settings:
             raise ConfigurationError(
                 f"state code {self.state_code!r} should be two letters"
             )
+        if self.rate_limit_per_minute < 0:
+            raise ConfigurationError("a rate limit cannot be negative")
         if self.max_page_size < 1:
             raise ConfigurationError("max page size has to be at least one")
         if self.minimum_settlement < 0:
@@ -132,6 +138,7 @@ def load_settings() -> Settings:
         ticket_prefix=_env("TICKET_PREFIX") or DEFAULT_TICKET_PREFIX,
         max_page_size=_env_int("MAX_PAGE_SIZE", DEFAULT_MAX_PAGE_SIZE),
         log_level=(_env("LOG_LEVEL") or DEFAULT_LOG_LEVEL).upper(),
+        rate_limit_per_minute=_env_int("RATE_LIMIT_PER_MINUTE", DEFAULT_RATE_LIMIT),
         api_keys=frozenset(k.strip() for k in keys.split(",") if k.strip()),
         minimum_settlement=_env_decimal("MINIMUM_SETTLEMENT", "0.00"),
     )

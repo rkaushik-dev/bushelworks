@@ -20,6 +20,7 @@ from ..config import Settings, load_settings
 from ..logging import configure, event, failure, get_logger, set_request_id
 from ..persistence.base import create_all, engine_for, session_factory
 from .errors import install_error_handlers
+from .throttle import install_throttle
 
 API_TITLE = "bushelworks"
 API_DESCRIPTION = (
@@ -58,6 +59,7 @@ def create_app(
     app.state.session_factory = factory
 
     install_error_handlers(app)
+    install_throttle(app, resolved.rate_limit_per_minute)
     _install_request_id(app)
     _install_health(app)
 
