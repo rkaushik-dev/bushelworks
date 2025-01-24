@@ -64,6 +64,7 @@ def create_app(
     _install_health(app)
 
     from .routers import (
+        bins_router,
         contracts_router,
         deferred_router,
         ops_router,
@@ -84,6 +85,7 @@ def create_app(
     app.include_router(parties_router)
     app.include_router(ops_router)
     app.include_router(deferred_router)
+    app.include_router(bins_router)
     return app
 
 

@@ -1,5 +1,6 @@
 """Routers, one per thing the office asks about."""
 
+from .bins import router as bins_router
 from .contracts import router as contracts_router
 from .deferred import router as deferred_router
 from .ops import router as ops_router
@@ -11,6 +12,7 @@ from .storage import router as storage_router
 from .tickets import router as tickets_router
 
 __all__ = [
+    "bins_router",
     "contracts_router",
     "deferred_router",
     "ops_router",
