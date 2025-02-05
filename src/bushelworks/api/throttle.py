@@ -22,7 +22,7 @@ WINDOW_SECONDS = 60.0
 
 # Paths that are never limited. A health check that gets a 429 takes the box
 # out of the load balancer, which is the opposite of what a limit is for.
-EXEMPT = ("/health", "/ready", "/openapi.json", "/docs", "/redoc")
+EXEMPT = ("/health", "/ready", "/metrics", "/openapi.json", "/docs", "/redoc")
 
 
 @dataclass
