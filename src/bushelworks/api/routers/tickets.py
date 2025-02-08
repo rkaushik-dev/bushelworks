@@ -10,8 +10,10 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from pydantic import Field
 
 from ...domain.tickets import ScaleTicket, SplitShare
+from ...errors import BushelworksError
 from ...persistence.mappers import sample_from_rows, ticket_from_row
 from ...persistence.unitofwork import UnitOfWork
 from ...services.intake import receive
@@ -20,7 +22,9 @@ from ..deps import get_rules, get_uow, paging
 from ..schemas import (
     GradedLoadOut,
     GradeOut,
+    Money,
     Page,
+    Quantity,
     SampleReading,
     SplitIn,
     TicketIn,
@@ -124,6 +128,87 @@ def _load_out(load) -> GradedLoadOut:
             grade=load.grade.grade.value,
             limiting_factors=[f.value for f in load.grade.limiting_factors],
         ),
+    )
+
+
+class BatchIn(Money):
+    """A run of tickets the driveway terminal held while the line was down."""
+
+    tickets: list[TicketIn] = Field(min_length=1, max_length=200)
+    stop_on_first_refusal: bool = False
+
+
+class BatchResultOut(Money):
+    ticket_number: str
+    accepted: bool
+    code: str | None = None
+    detail: str | None = None
+    dry_bushels: Quantity | None = None
+
+
+class BatchOut(Money):
+    accepted: int
+    refused: int
+    results: list[BatchResultOut]
+
+    @property
+    def is_clean(self) -> bool:
+        return self.refused == 0
+
+
+@router.post(
+    "/batch",
+    response_model=BatchOut,
+    status_code=status.HTTP_207_MULTI_STATUS,
+    summary="Take a run of tickets the terminal held while the line was down",
+)
+def create_batch(
+    body: BatchIn,
+    uow: UnitOfWork = Depends(get_uow),
+    rules=Depends(get_rules),
+) -> BatchOut:
+    """Record several tickets, reporting each one on its own.
+
+    A refused ticket does not cost the rest of the batch. The terminal holds
+    tickets when the line is down and sends nine at once when it comes back;
+    one duplicate in the middle used to lose the other eight, and the driver of
+    the eighth had already gone home.
+
+    Each ticket is committed as it is taken so a later refusal cannot roll an
+    earlier one back.
+    """
+    results: list[BatchResultOut] = []
+    accepted = 0
+    for body_ticket in body.tickets:
+        try:
+            recorded = record_load(
+                uow, _to_domain(body_ticket), body_ticket.party_code, rules
+            )
+            uow.commit()
+            accepted += 1
+            results.append(
+                BatchResultOut(
+                    ticket_number=body_ticket.ticket_number,
+                    accepted=True,
+                    dry_bushels=recorded.load.dry_bushels,
+                )
+            )
+        except BushelworksError as refusal:
+            uow.rollback()
+            results.append(
+                BatchResultOut(
+                    ticket_number=body_ticket.ticket_number,
+                    accepted=False,
+                    code=refusal.code,
+                    detail=refusal.message,
+                )
+            )
+            if body.stop_on_first_refusal:
+                break
+    return BatchOut(
+        accepted=accepted,
+        refused=len(results) - accepted,
+        results=results,
     )
 
 
