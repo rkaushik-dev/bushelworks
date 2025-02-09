@@ -46,16 +46,26 @@ def field_row(label: str, value: str) -> str:
 
 
 def amount_row(code: str, description: str, dollars: Decimal) -> str:
-    return (
-        f"  {code:<{CODE_WIDTH}}"
-        f"{description[:DESCRIPTION_WIDTH]:<{DESCRIPTION_WIDTH}}"
-        f"{format_amount(dollars):>{AMOUNT_WIDTH - 2}}"
-    )
+    """One printed line, and it never runs past the form.
+
+    The amount column used to be a fixed twelve characters. A settlement over a
+    million dollars formats to thirteen and pushed the line to eighty one, which
+    the dot matrix wraps onto a second line and the producer reads as a second
+    charge. The description gives the room up instead.
+    """
+    rendered = format_amount(dollars)
+    room = WIDTH - 2 - CODE_WIDTH - len(rendered)
+    if room < 1:
+        room = 1
+    return f"  {code[:CODE_WIDTH]:<{CODE_WIDTH}}{description[:room]:<{room}}{rendered}"
 
 
 def total_row(label: str, dollars: Decimal) -> str:
-    left = f"  {label}"
-    return f"{left:<{WIDTH - AMOUNT_WIDTH + 2}}{format_amount(dollars):>{AMOUNT_WIDTH - 2}}"
+    rendered = format_amount(dollars)
+    room = WIDTH - 2 - len(rendered)
+    if room < 1:
+        room = 1
+    return f"  {label[:room]:<{room}}{rendered}"
 
 
 def render(settlement: Settlement, house_name: str = "BUSHELWORKS ELEVATOR") -> str:
@@ -101,14 +111,18 @@ def render_many(
 
 
 def summary_line(settlement: Settlement) -> str:
-    """One row for the daily settlement register."""
+    """One row for the daily settlement register, inside the form width."""
+    gross = format_amount(settlement.gross)
+    net = format_amount(settlement.net)
+    room = WIDTH - 14 - 12 - 8 - len(gross) - len(net)
+    if room < 1:
+        room = 1
     return (
-        f"{settlement.number:<14}"
+        f"{settlement.number[:14]:<14}"
         f"{settlement.settled_on.isoformat():<12}"
-        f"{settlement.party_id[:16]:<18}"
-        f"{settlement.location_code:<8}"
-        f"{format_amount(settlement.gross):>12}"
-        f"{format_amount(settlement.net):>14}"
+        f"{settlement.party_id[:room]:<{room}}"
+        f"{settlement.location_code[:8]:<8}"
+        f"{gross}{net}"
     )
 
 

@@ -105,6 +105,48 @@ def test_the_register_totals_what_it_lists(rules, corn_ticket):
     assert "4,586.78" in text
 
 
+def test_a_seven_figure_statement_stays_inside_the_form(rules, corn_ticket):
+    """The regression that printed a charge twice.
+
+    An amount over a million formats to thirteen characters and the amount
+    column was twelve. The line ran to eighty one, the dot matrix wrapped it,
+    and the producer read the wrapped remainder as a second charge.
+    """
+    from bushelworks.domain.settlement import LineKind, SettlementBuilder
+
+    builder = SettlementBuilder("S-2024-0417", SETTLED, "MERRICK", "HOME")
+    builder.add_gross(
+        "GRAIN", "Corn, 3,000,000 bu", Decimal("3000000"), Decimal("4.3500")
+    )
+    builder.add_charge(
+        LineKind.ADVANCE, "ADV", "advance of 12 September", Decimal("2000000.00")
+    )
+    text = render(builder.build())
+    assert all(len(line) <= WIDTH for line in text.split("\n"))
+
+
+def test_a_long_description_is_trimmed_rather_than_wrapped():
+    from bushelworks.reports.statement import amount_row
+
+    row = amount_row("TW", "x" * 200, Decimal("18.66"))
+    assert len(row) == WIDTH
+
+
+def test_a_long_total_label_is_trimmed_too():
+    from bushelworks.reports.statement import total_row
+
+    row = total_row("y" * 200, Decimal("-1234567890.12"))
+    assert len(row) == WIDTH
+
+
+def test_a_register_row_with_a_long_producer_stays_inside_the_form(rules, corn_ticket):
+    from dataclasses import replace
+
+    statement = quick_statement(rules, corn_ticket, number="S-2024-0417")
+    long_named = replace(statement, party_id="A" * 60)
+    assert len(summary_line(long_named)) <= WIDTH
+
+
 def test_an_empty_register_still_renders(rules):
     text = register([], "20 October 2024")
     assert "0 statements" in text
