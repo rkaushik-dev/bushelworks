@@ -91,7 +91,7 @@ def test_the_refused_ticket_says_why(client):
     body = client.post(
         "/tickets/batch", json={"tickets": [a_ticket("A-1"), a_ticket("A-2")]}
     ).json()
-    refused = [item for item in body["results"] if not item["accepted"]][0]
+    refused = next(item for item in body["results"] if not item["accepted"])
     assert refused["ticket_number"] == "A-2"
     assert refused["code"] == "conflict"
     assert "already written" in refused["detail"]
@@ -129,7 +129,7 @@ def test_a_ticket_the_house_cannot_grade_is_refused_on_its_own(client):
         "/tickets/batch", json={"tickets": [a_ticket("A-1"), bad, a_ticket("A-3")]}
     ).json()
     assert body["accepted"] == 2
-    refused = [item for item in body["results"] if not item["accepted"]][0]
+    refused = next(item for item in body["results"] if not item["accepted"])
     assert refused["code"] == "intake_error"
 
 

@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..base import Base, BUSHELS, PERCENT
+from ..base import BUSHELS, PERCENT, Base
 from .reference import TimestampMixin
 
 

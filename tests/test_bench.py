@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -8,7 +8,7 @@ from bushelworks.domain.bench import RETENTION, Bench, BenchError, Sample, Step
 from bushelworks.domain.grade import NumericalGrade
 from bushelworks.errors import ConflictError
 
-DRAWN = datetime(2024, 10, 3, 8, 15, tzinfo=timezone.utc)
+DRAWN = datetime(2024, 10, 3, 8, 15, tzinfo=UTC)
 
 READINGS = {
     cm.Factor.TEST_WEIGHT: Decimal("56.5"),

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
 from bushelworks.persistence.models import BinReadingRow, BinRow
 
-TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=timezone.utc)
+TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ def test_readings_hang_off_the_bin_in_time_order(make_session):
     with make_session() as session:
         row = a_bin()
         row.readings = [
-            a_reading(taken_at=datetime(2024, 11, 28, 6, tzinfo=timezone.utc)),
+            a_reading(taken_at=datetime(2024, 11, 28, 6, tzinfo=UTC)),
             a_reading(),
         ]
         session.add(row)

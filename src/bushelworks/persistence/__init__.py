@@ -7,4 +7,4 @@ the far side of that line so it can be tested without a database.
 
 from .base import Base, engine_for, metadata, session_factory
 
-__all__ = ["Base", "metadata", "session_factory", "engine_for"]
+__all__ = ["Base", "engine_for", "metadata", "session_factory"]

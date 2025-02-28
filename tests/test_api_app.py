@@ -72,9 +72,10 @@ def test_a_schema_built_without_alembic_reports_unmanaged(client):
 
 
 def test_a_migrated_schema_reports_its_revision(tmp_path, monkeypatch):
+    from pathlib import Path
+
     from alembic import command
     from alembic.config import Config
-    from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
     url = f"sqlite+pysqlite:///{tmp_path / 'ready.sqlite3'}"

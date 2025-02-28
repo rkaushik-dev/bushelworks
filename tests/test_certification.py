@@ -57,7 +57,7 @@ def test_a_scale_reading_light_shows_a_negative_error():
 
 def test_a_small_error_is_inside_tolerance():
     assert a_test(indicated_pounds=Decimal("60040")).is_within_tolerance
-    assert TOLERANCE == Decimal("0.001")
+    assert Decimal("0.001") == TOLERANCE
 
 
 def test_a_large_error_is_outside_tolerance():

@@ -12,10 +12,11 @@ and there is not going to be one.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import monotonic
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 WINDOW_SECONDS = 60.0
@@ -101,7 +102,9 @@ def install_throttle(app: FastAPI, per_minute: int) -> Limiter | None:
     app.state.limiter = limiter
 
     @app.middleware("http")
-    async def _throttle(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def _throttle(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         if request.url.path in EXEMPT:
             return await call_next(request)
 

@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from bushelworks.logging import (
     LOGGER_NAME,
-    capture,
+    Capture,
     configure,
     current_request_id,
     event,
@@ -57,7 +57,7 @@ def test_fields_render_in_the_order_they_were_given():
 
 
 def test_an_event_line_carries_its_fields():
-    with capture() as log:
+    with Capture() as log:
         event(
             get_logger("intake"),
             "ticket.recorded",
@@ -71,7 +71,7 @@ def test_an_event_line_carries_its_fields():
 
 
 def test_the_line_starts_with_a_timestamp_and_a_level():
-    with capture() as log:
+    with Capture() as log:
         event(get_logger(), "ticket.recorded")
     parts = log.lines[0].split(" ")
     assert parts[0].startswith("20")
@@ -80,13 +80,13 @@ def test_the_line_starts_with_a_timestamp_and_a_level():
 
 
 def test_a_warning_says_so():
-    with capture() as log:
+    with Capture() as log:
         warn(get_logger(), "contract.overfilled", contract="F-1")
     assert " warning " in log.lines[0]
 
 
 def test_a_failure_says_so():
-    with capture() as log:
+    with Capture() as log:
         failure(get_logger(), "settlement.refused", party="MERRICK")
     assert " error " in log.lines[0]
 
@@ -94,7 +94,7 @@ def test_a_failure_says_so():
 def test_the_request_id_rides_along():
     set_request_id("abc123")
     try:
-        with capture() as log:
+        with Capture() as log:
             event(get_logger(), "ticket.recorded", ticket="A-10441")
         assert "request_id=abc123" in log.lines[0]
         assert current_request_id() == "abc123"
@@ -104,13 +104,13 @@ def test_the_request_id_rides_along():
 
 def test_no_request_id_leaves_the_field_off():
     set_request_id(None)
-    with capture() as log:
+    with Capture() as log:
         event(get_logger(), "ticket.recorded")
     assert "request_id" not in log.lines[0]
 
 
 def test_capture_finds_lines_by_event_name():
-    with capture() as log:
+    with Capture() as log:
         event(get_logger(), "ticket.recorded", ticket="A-1")
         event(get_logger(), "settlement.written", number="S-1")
     assert len(log.find("ticket.recorded")) == 1

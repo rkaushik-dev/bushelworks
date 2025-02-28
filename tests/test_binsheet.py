@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -10,7 +10,7 @@ from bushelworks.persistence.unitofwork import unit_of_work
 from bushelworks.reports.binsheet import WIDTH, line_for, render, room_for, to_csv
 from bushelworks.services.binyard import bins_at, put_away, record_reading, take_out_of_service
 
-TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=timezone.utc)
+TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=UTC)
 
 SAMPLE = {
     Factor.MOISTURE: Decimal("14.0"),

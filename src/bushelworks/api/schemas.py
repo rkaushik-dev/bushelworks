@@ -28,7 +28,10 @@ def _as_decimal(value: Any) -> Decimal:
         except InvalidOperation as exc:
             raise ValueError(f"{value!r} is not a number") from exc
     if isinstance(value, float):
-        raise ValueError(
+        # Pydantic only collects ValueError and AssertionError out of a
+        # validator. A TypeError here escapes as a 500 rather than the 422 the
+        # caller needs to see, so the naming rule does not apply.
+        raise ValueError(  # noqa: TRY004
             "send quantities as strings, not as JSON numbers, so they do not "
             "lose precision on the way in"
         )

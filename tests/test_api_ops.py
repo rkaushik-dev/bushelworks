@@ -1,3 +1,5 @@
+from datetime import UTC
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -88,17 +90,17 @@ def test_a_producer_with_no_trail_comes_back_empty(busy):
 
 
 def test_the_day_trail_finds_todays_entries(busy):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     entries = busy.get(f"/ops/audit/day/{today}").json()
     assert len(entries) == 2
 
 
 def test_the_day_trail_can_be_filtered_by_action(busy):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     entries = busy.get(f"/ops/audit/day/{today}", params={"action": "settled"}).json()
     assert entries == []
 

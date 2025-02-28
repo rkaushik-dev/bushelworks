@@ -113,7 +113,7 @@ def test_the_batch_header_names_the_effective_day():
 
 def test_an_entry_carries_the_producer_and_the_amount():
     text = build(HOUSE, [a_credit()], CREATED, EFFECTIVE, "101000187")
-    entry_line = [line for line in text.split("\n") if line.startswith("622")][0]
+    entry_line = next(line for line in text.split("\n") if line.startswith("622"))
     assert "MERRICK" in entry_line
     assert "0000284801" in entry_line
 
@@ -121,7 +121,7 @@ def test_an_entry_carries_the_producer_and_the_amount():
 def test_the_batch_control_totals_the_entries():
     credits = [a_credit(), a_credit(party_code="HOLLIS", dollars=Decimal("1000.00"))]
     text = build(HOUSE, credits, CREATED, EFFECTIVE, "101000187")
-    control = [line for line in text.split("\n") if line.startswith("8220")][0]
+    control = next(line for line in text.split("\n") if line.startswith("8220"))
     assert str(total_cents(credits)).zfill(12) in control
     assert control[4:10] == "000002"
 

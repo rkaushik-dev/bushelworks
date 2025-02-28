@@ -5,7 +5,7 @@ import pytest
 
 from bushelworks.services.legacy import (
     RECORD_LENGTH,
-    ImportError_,
+    LegacyImportError,
     duplicates,
     parse_file,
     parse_line,
@@ -95,43 +95,43 @@ def test_an_unmapped_party_code_comes_across_as_it_is():
 
 
 def test_a_short_line_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line()[:40], 1)
 
 
 def test_a_line_with_no_ticket_number_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(ticket="          "), 1)
 
 
 def test_a_line_with_no_party_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(party="      "), 1)
 
 
 def test_a_bad_date_is_refused_naming_it():
-    with pytest.raises(ImportError_) as caught:
+    with pytest.raises(LegacyImportError) as caught:
         parse_line(a_line(scale_date="20221345"), 1)
     assert "20221345" in str(caught.value)
 
 
 def test_a_blank_weight_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(gross="          "), 1)
 
 
 def test_a_weight_that_is_not_a_number_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(tare="     ABCDE"), 1)
 
 
 def test_a_tare_above_gross_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(gross="     26180", tare="     78420"), 1)
 
 
 def test_an_unknown_disposition_is_refused():
-    with pytest.raises(ImportError_):
+    with pytest.raises(LegacyImportError):
         parse_line(a_line(disposition="BORROWED"), 1)
 
 

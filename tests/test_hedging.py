@@ -45,7 +45,7 @@ def test_a_fill_needs_contracts_and_a_price():
 
 def test_a_lot_knows_its_bushels():
     assert a_lot().bushels == Decimal("50000")
-    assert CONTRACT_BUSHELS == Decimal("5000")
+    assert Decimal("5000") == CONTRACT_BUSHELS
 
 
 def test_a_short_counts_negative():

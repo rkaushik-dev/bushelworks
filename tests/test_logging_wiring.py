@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from bushelworks.api.app import create_app
 from bushelworks.config import Settings
 from bushelworks.errors import ConfigurationError
-from bushelworks.logging import capture
+from bushelworks.logging import Capture
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
 from bushelworks.persistence.unitofwork import unit_of_work
 from bushelworks.services.scalehouse import record_load
@@ -30,7 +30,7 @@ def factory():
 
 
 def test_recording_a_load_logs_it(factory, rules, corn_ticket):
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             record_load(uow, corn_ticket, "MERRICK", rules)
             uow.commit()
@@ -43,7 +43,7 @@ def test_recording_a_load_logs_it(factory, rules, corn_ticket):
 
 
 def test_a_load_with_no_contract_logs_the_open_bushels(factory, rules, corn_ticket):
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             record_load(uow, corn_ticket, "MERRICK", rules)
             uow.commit()
@@ -59,7 +59,7 @@ def test_a_sample_grade_load_raises_a_warning(factory, rules, corn_ticket):
         corn_ticket,
         sample={**corn_ticket.sample, Factor.DAMAGE_TOTAL: Decimal("30.0")},
     )
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             record_load(uow, bad, "MERRICK", rules)
             uow.commit()
@@ -69,7 +69,7 @@ def test_a_sample_grade_load_raises_a_warning(factory, rules, corn_ticket):
 
 
 def test_a_clean_load_raises_no_warning(factory, rules, corn_ticket):
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             record_load(uow, corn_ticket, "MERRICK", rules)
             uow.commit()
@@ -80,7 +80,7 @@ def test_settling_logs_the_totals(factory, rules, corn_ticket):
     with unit_of_work(factory) as uow:
         record_load(uow, corn_ticket, "MERRICK", rules)
         uow.commit()
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             settle_producer(
                 uow, "MERRICK", "HOME", rules, date(2024, 10, 20), Decimal("4.35")
@@ -97,7 +97,7 @@ def test_the_accrual_run_logs_what_it_billed(factory, rules):
     with unit_of_work(factory) as uow:
         store(uow, "L-1", "MERRICK", "CORN", "HOME", Decimal("8000"), date(2024, 10, 3))
         uow.commit()
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             accrue(uow, rules, date(2024, 12, 14))
             uow.commit()
@@ -111,7 +111,7 @@ def test_a_dry_run_says_it_recorded_nothing(factory, rules):
     with unit_of_work(factory) as uow:
         store(uow, "L-1", "MERRICK", "CORN", "HOME", Decimal("8000"), date(2024, 10, 3))
         uow.commit()
-    with capture() as log:
+    with Capture() as log:
         with unit_of_work(factory) as uow:
             accrue(uow, rules, date(2024, 12, 14), record=False)
     assert "recorded=no" in log.find("storage.accrued")[0]
@@ -124,7 +124,7 @@ def test_every_served_request_is_logged():
         settings=Settings(database_url="sqlite+pysqlite:///:memory:"),
         factory=session_factory(engine),
     )
-    with capture() as log, TestClient(app) as client:
+    with Capture() as log, TestClient(app) as client:
         client.get("/health")
     lines = log.find("request.served")
     assert len(lines) == 1

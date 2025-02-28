@@ -253,4 +253,4 @@ def list_contracts(
     )
 
 
-__all__ = ["router", "ContractIn", "ContractOut", "contract_from_row", "ContractStatus"]
+__all__ = ["ContractIn", "ContractOut", "ContractStatus", "contract_from_row", "router"]

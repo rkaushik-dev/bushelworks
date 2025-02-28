@@ -68,6 +68,10 @@ select = [
   "C4",   # comprehensions
   "SIM",  # simplify
   "RET",  # returns
+  "PIE",  # small unnecessary constructs
+  "RUF",  # ruff's own
+  "N",    # pep8 naming
+  "TRY",  # exception handling
 ]
 ignore = [
   # A settlement line reads better as an explicit if than as a ternary, and
@@ -80,6 +84,16 @@ ignore = [
   # A guard that returns False for each disqualifying condition reads in the
   # order the rule is written down. The single negated boolean does not.
   "SIM103",
+  # Nearly every raise here carries a message naming the record that
+  # refused. Moving those into the exception classes would give the
+  # scale house a stack of subclasses and no more information.
+  "TRY003",
+  # A settlement that cannot be built raises on the spot rather than
+  # collecting into a variable and raising at the end.
+  "TRY301",
+  # NotAuthorised and Forbidden are the two names the HTTP layer uses
+  # for them and reading NotAuthorisedError in a router is worse.
+  "N818",
 ]
 
 [tool.ruff.lint.per-file-ignores]

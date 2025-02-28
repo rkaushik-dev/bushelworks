@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -23,7 +23,7 @@ from bushelworks.services.binyard import (
     yard_total,
 )
 
-TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=timezone.utc)
+TAKEN = datetime(2024, 11, 27, 6, 0, tzinfo=UTC)
 
 SAMPLE = {
     Factor.MOISTURE: Decimal("14.0"),

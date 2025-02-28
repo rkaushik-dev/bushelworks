@@ -12,10 +12,11 @@ always about today.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from time import monotonic
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 
 
 @dataclass
@@ -86,7 +87,9 @@ def install_metrics(app: FastAPI) -> Metrics:
     app.state.metrics = metrics
 
     @app.middleware("http")
-    async def _count(request: Request, call_next):  # type: ignore[no-untyped-def]
+    async def _count(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         started = monotonic()
         try:
             response = await call_next(request)

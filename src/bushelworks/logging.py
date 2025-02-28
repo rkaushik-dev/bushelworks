@@ -117,7 +117,7 @@ def failure(logger: logging.Logger, name: str, **fields: Any) -> None:
     logger.error(name, extra={"fields": fields})
 
 
-class capture:
+class Capture:
     """Collect log lines in a list. Used by the tests and by nothing else."""
 
     def __init__(self, level: str = "INFO") -> None:
@@ -125,7 +125,7 @@ class capture:
         self.lines: list[str] = []
         self._handler: logging.Handler | None = None
 
-    def __enter__(self) -> capture:
+    def __enter__(self) -> Capture:
         logger = get_logger()
         handler = _ListHandler(self.lines)
         handler.setFormatter(KeyValueFormatter())

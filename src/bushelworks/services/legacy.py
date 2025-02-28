@@ -50,7 +50,7 @@ DISPOSITIONS: dict[str, str] = {
 }
 
 
-class ImportError_(ValidationError):
+class LegacyImportError(ValidationError):
     """Raised when a row cannot be read at all."""
 
     code = "import_error"
@@ -119,11 +119,11 @@ def field_at(line: str, name: str) -> str:
 def _decimal(text: str, label: str, line_number: int) -> Decimal:
     cleaned = text.replace(",", "").strip()
     if not cleaned:
-        raise ImportError_(f"line {line_number}: {label} is blank")
+        raise LegacyImportError(f"line {line_number}: {label} is blank")
     try:
         return Decimal(cleaned)
     except InvalidOperation as exc:
-        raise ImportError_(
+        raise LegacyImportError(
             f"line {line_number}: {label} is {text.strip()!r}"
         ) from exc
 
@@ -148,36 +148,36 @@ def _optional_decimal(text: str) -> Decimal | None:
 def parse_line(line: str, line_number: int, party_map: dict[str, str] | None = None) -> Row:
     """Read one fixed width row, or say which field beat it."""
     if len(line) < RECORD_LENGTH:
-        raise ImportError_(
+        raise LegacyImportError(
             f"line {line_number}: {len(line)} characters, expected {RECORD_LENGTH}"
         )
 
     ticket_number = field_at(line, "ticket_number").strip()
     if not ticket_number:
-        raise ImportError_(f"line {line_number}: no ticket number")
+        raise LegacyImportError(f"line {line_number}: no ticket number")
 
     raw_date = field_at(line, "scale_date").strip()
     try:
         scale_date = datetime.strptime(raw_date, "%Y%m%d").date()
     except ValueError as exc:
-        raise ImportError_(f"line {line_number}: {raw_date!r} is not a date") from exc
+        raise LegacyImportError(f"line {line_number}: {raw_date!r} is not a date") from exc
 
     old_code = field_at(line, "party_code").strip()
     party_code = (party_map or {}).get(old_code, old_code)
     if not party_code:
-        raise ImportError_(f"line {line_number}: no party code")
+        raise LegacyImportError(f"line {line_number}: no party code")
 
     raw_disposition = field_at(line, "disposition")
     disposition = DISPOSITIONS.get(raw_disposition)
     if disposition is None:
-        raise ImportError_(
+        raise LegacyImportError(
             f"line {line_number}: {raw_disposition.strip()!r} is not a disposition"
         )
 
     gross = _decimal(field_at(line, "gross_pounds"), "gross", line_number)
     tare = _decimal(field_at(line, "tare_pounds"), "tare", line_number)
     if tare > gross:
-        raise ImportError_(f"line {line_number}: tare {tare} exceeds gross {gross}")
+        raise LegacyImportError(f"line {line_number}: tare {tare} exceeds gross {gross}")
 
     return Row(
         line_number=line_number,
@@ -204,7 +204,7 @@ def parse_file(text: str, party_map: dict[str, str] | None = None) -> Result:
             continue
         try:
             result.rows.append(parse_line(line, index, party_map))
-        except ImportError_ as error:
+        except LegacyImportError as error:
             result.rejected.append(Rejected(index, line, error.message))
     return result
 

@@ -83,7 +83,7 @@ def test_an_idle_run_has_no_fuel_rate():
 
 def test_the_fuel_rate_compares_with_the_rule_of_thumb():
     assert a_run().gallons_per_point_bushel() == Decimal("0.0200")
-    assert GALLONS_PER_POINT_PER_BUSHEL == Decimal("0.02")
+    assert Decimal("0.02") == GALLONS_PER_POINT_PER_BUSHEL
     assert not a_run().is_thirsty()
 
 

@@ -73,7 +73,7 @@ def test_a_house_close_to_the_licence_is_tight():
 
 
 def test_the_tight_margin_is_five_percent():
-    assert TIGHT_MARGIN == Decimal("0.05")
+    assert Decimal("0.05") == TIGHT_MARGIN
 
 
 def test_the_percentage_used_is_of_the_licence():

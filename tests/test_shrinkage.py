@@ -79,7 +79,7 @@ def test_a_small_gain_is_not_notable():
 
 def test_a_large_gain_is_notable():
     assert a_period().is_notable
-    assert NOTABLE == Decimal("0.002")
+    assert Decimal("0.002") == NOTABLE
 
 
 def test_a_large_loss_is_notable_too():
