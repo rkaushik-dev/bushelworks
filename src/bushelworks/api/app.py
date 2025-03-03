@@ -69,6 +69,7 @@ def create_app(
         bins_router,
         contracts_router,
         deferred_router,
+        desk_router,
         ops_router,
         parties_router,
         positions_router,
@@ -88,6 +89,7 @@ def create_app(
     app.include_router(ops_router)
     app.include_router(deferred_router)
     app.include_router(bins_router)
+    app.include_router(desk_router)
     return app
 
 
