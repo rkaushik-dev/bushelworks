@@ -1,8 +1,9 @@
 """Command line entry point.
 
-The group and nothing else. Commands live in :mod:`bushelworks.cli.grain` and
-:mod:`bushelworks.cli.yard`, which is where they went when this file reached
-three hundred lines and adding the storage run would have made it four.
+The group and nothing else. Commands live in :mod:`bushelworks.cli.grain`,
+:mod:`bushelworks.cli.yard` and :mod:`bushelworks.cli.board`, which is where
+they went when this file reached three hundred lines and adding the storage
+run would have made it four.
 
 Every command opens its own unit of work and commits at the end or not at all.
 Nothing is interactive: the office runs these out of a batch file at six in the
@@ -14,7 +15,7 @@ from __future__ import annotations
 import click
 
 from ..persistence.base import create_all
-from . import grain, yard
+from . import board, grain, yard
 from .context import Context, handle_errors, pass_context
 
 
@@ -60,7 +61,7 @@ def seed_house(ctx: Context, force: bool) -> None:
     click.echo(summary)
 
 
-for command in (*grain.COMMANDS, *yard.COMMANDS):
+for command in (*grain.COMMANDS, *yard.COMMANDS, *board.COMMANDS):
     cli.add_command(command)
 
 
