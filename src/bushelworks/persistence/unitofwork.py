@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ..errors import ConflictError
 from .repositories import (
+    ComplaintRepository,
     ContractRepository,
     PartyRepository,
     SettlementRepository,
@@ -42,6 +43,7 @@ class UnitOfWork:
         self._contracts: ContractRepository | None = None
         self._settlements: SettlementRepository | None = None
         self._parties: PartyRepository | None = None
+        self._complaints: ComplaintRepository | None = None
         self._committed = False
 
     def __enter__(self) -> UnitOfWork:
@@ -53,6 +55,7 @@ class UnitOfWork:
         self._contracts = ContractRepository(session)
         self._settlements = SettlementRepository(session)
         self._parties = PartyRepository(session)
+        self._complaints = ComplaintRepository(session)
         self._committed = False
         return self
 
@@ -73,6 +76,7 @@ class UnitOfWork:
             self._contracts = None
             self._settlements = None
             self._parties = None
+            self._complaints = None
 
     def _require(self, thing: object, name: str) -> None:
         if thing is None:
@@ -109,6 +113,12 @@ class UnitOfWork:
         self._require(self._parties, "party repository")
         assert self._parties is not None
         return self._parties
+
+    @property
+    def complaints(self) -> ComplaintRepository:
+        self._require(self._complaints, "complaint repository")
+        assert self._complaints is not None
+        return self._complaints
 
     @property
     def is_open(self) -> bool:
