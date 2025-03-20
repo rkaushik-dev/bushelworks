@@ -113,6 +113,21 @@ class TicketRepository:
         self.session.flush()
         return row
 
+    def by_number(self, ticket_number: str) -> list[ScaleTicketRow]:
+        """Every ticket carrying a number, across the sites.
+
+        A number is only unique inside one elevator, so this is a list. It
+        exists because a complaint arrives with a number read out over the
+        telephone and nobody says which house it was written at.
+        """
+        return list(
+            self.session.scalars(
+                select(ScaleTicketRow)
+                .where(ScaleTicketRow.ticket_number == ticket_number)
+                .order_by(ScaleTicketRow.scale_date, ScaleTicketRow.id)
+            )
+        )
+
     def for_party(
         self, party_code: str, since: date | None = None
     ) -> list[ScaleTicketRow]:

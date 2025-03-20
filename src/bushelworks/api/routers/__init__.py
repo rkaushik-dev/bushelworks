@@ -7,6 +7,7 @@ from .desk import router as desk_router
 from .ops import router as ops_router
 from .parties import router as parties_router
 from .positions import router as positions_router
+from .quality import router as quality_router
 from .reports import router as reports_router
 from .sales import router as sales_router
 from .settlements import router as settlements_router
@@ -21,6 +22,7 @@ __all__ = [
     "ops_router",
     "parties_router",
     "positions_router",
+    "quality_router",
     "reports_router",
     "sales_router",
     "settlements_router",
