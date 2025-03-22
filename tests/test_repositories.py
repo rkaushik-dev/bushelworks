@@ -280,3 +280,83 @@ def test_the_party_repository_finds_active_parties(session):
     assert [loc.code for loc in repo.locations()] == ["HOME"]
     with pytest.raises(PartyNotFound):
         repo.get("NOBODY")
+
+
+def test_every_repository_is_still_importable_from_the_package():
+    """The split is meant to be invisible to everything that imports it.
+
+    Six services and eleven routers import from
+    ``bushelworks.persistence.repositories``, and the point of the package was
+    that not one of them had to change. If a name stops being re-exported that
+    is a break, not a tidy up.
+    """
+    from bushelworks.persistence import repositories
+
+    for name in (
+        "ComplaintNotFound",
+        "ComplaintRepository",
+        "ContractNotFound",
+        "ContractRepository",
+        "PartyNotFound",
+        "PartyRepository",
+        "SettlementNotFound",
+        "SettlementRepository",
+        "TicketNotFound",
+        "TicketRepository",
+    ):
+        assert hasattr(repositories, name), name
+        assert name in repositories.__all__
+
+
+def test_each_error_lives_beside_the_repository_that_raises_it():
+    from bushelworks.persistence.repositories import (
+        contracts,
+        quality,
+        reference,
+        settlements,
+        tickets,
+    )
+
+    pairs = [
+        (tickets, "TicketNotFound", "TicketRepository"),
+        (contracts, "ContractNotFound", "ContractRepository"),
+        (settlements, "SettlementNotFound", "SettlementRepository"),
+        (reference, "PartyNotFound", "PartyRepository"),
+        (quality, "ComplaintNotFound", "ComplaintRepository"),
+    ]
+    for module, error, repository in pairs:
+        assert getattr(module, error).__module__ == module.__name__
+        assert getattr(module, repository).__module__ == module.__name__
+
+
+def test_every_lookup_failure_carries_its_own_code():
+    from bushelworks.persistence.repositories import (
+        ComplaintNotFound,
+        ContractNotFound,
+        PartyNotFound,
+        SettlementNotFound,
+        TicketNotFound,
+    )
+
+    codes = {
+        TicketNotFound.code,
+        ContractNotFound.code,
+        SettlementNotFound.code,
+        PartyNotFound.code,
+        ComplaintNotFound.code,
+    }
+    assert len(codes) == 5
+    assert all(code.endswith("_not_found") for code in codes)
+
+
+def test_a_ticket_number_can_be_looked_up_across_the_sites(session, corn_ticket):
+    repo = TicketRepository(session)
+    repo.add(corn_ticket, "MERRICK")
+    repo.add(replace(corn_ticket, location_code="LURAY"), "MERRICK")
+    session.flush()
+    found = repo.by_number(corn_ticket.ticket_number)
+    assert [row.location_code for row in found] == ["HOME", "LURAY"]
+
+
+def test_a_number_nobody_wrote_finds_nothing(session):
+    assert TicketRepository(session).by_number("A-99999") == []
