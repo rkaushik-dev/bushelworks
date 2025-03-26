@@ -15,7 +15,7 @@ from __future__ import annotations
 import click
 
 from ..persistence.base import create_all
-from . import board, grain, yard
+from . import board, export, grain, yard
 from .context import Context, handle_errors, pass_context
 
 
@@ -61,7 +61,12 @@ def seed_house(ctx: Context, force: bool) -> None:
     click.echo(summary)
 
 
-for command in (*grain.COMMANDS, *yard.COMMANDS, *board.COMMANDS):
+for command in (
+    *grain.COMMANDS,
+    *yard.COMMANDS,
+    *board.COMMANDS,
+    *export.COMMANDS,
+):
     cli.add_command(command)
 
 

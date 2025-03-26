@@ -26,6 +26,7 @@ from decimal import Decimal
 from ..errors import ValidationError
 from ..money import amount, format_amount
 from ..units import BUSHEL_PLACES, quantize
+from .exports import cell, text_field
 
 WIDTH = 80
 
@@ -214,39 +215,43 @@ def render(year: Year, order: str = "bushels", limit: int = 25) -> str:
     return "\n".join(out)
 
 
+PATRONAGE_COLUMNS = (
+    "party_code",
+    "name",
+    "member",
+    "loads",
+    "bushels",
+    "gross",
+    "margin",
+    "margin_per_bushel",
+    "share_percent",
+)
+
+
 def to_csv(year: Year) -> str:
     """The same table for the accountant, who wants a spreadsheet.
 
-    Plain decimal strings, not the formatted amounts the printed page uses.
-    Thousand separators turn every number into text once it is opened.
+    The cell rules are the export ones rather than a set of its own: plain
+    decimals as text, no thousand separators, and a party code written so a
+    spreadsheet does not eat its leading zeroes. This formatted its own cells
+    to start with and had already drifted from the ticket export on that last
+    rule, which is how a producer coded 0041 came out as 41.
     """
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow(
-        [
-            "party_code",
-            "name",
-            "member",
-            "loads",
-            "bushels",
-            "gross",
-            "margin",
-            "margin_per_bushel",
-            "share_percent",
-        ]
-    )
+    writer.writerow(list(PATRONAGE_COLUMNS))
     for line in year.by_bushels():
         writer.writerow(
             [
-                line.party_code,
-                line.name,
-                "yes" if line.is_member else "no",
-                line.loads,
-                str(line.bushels),
-                str(line.gross),
-                str(line.margin),
-                str(line.margin_per_bushel),
-                str(year.share_of_bushels(line.party_code)),
+                text_field(line.party_code),
+                cell(line.name),
+                cell(line.is_member),
+                cell(line.loads),
+                cell(line.bushels),
+                cell(line.gross),
+                cell(line.margin),
+                cell(line.margin_per_bushel),
+                cell(year.share_of_bushels(line.party_code)),
             ]
         )
     return buffer.getvalue()
