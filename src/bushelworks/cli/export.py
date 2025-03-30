@@ -14,10 +14,12 @@ rather than six weeks later on somebody else's desk.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import click
 
+from ..domain.commodity import Factor
 from ..persistence.mappers import settlement_from_row
 from ..reports.exports import (
     LINE_COLUMNS,
@@ -172,8 +174,109 @@ def _settlements(uow, opens: date, closes: date, location: str | None):
     return [settlement_from_row(row) for row in rows]
 
 
+@click.command("import-legacy")
+@click.argument(
+    "path", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option(
+    "--map",
+    "party_map_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="A file of old,new party codes, one pair per line.",
+)
+@click.option(
+    "--commit/--dry-run",
+    default=False,
+    help="Dry run by default. The migration is looked at before it is run.",
+)
+@click.option(
+    "--assume",
+    "assumed",
+    multiple=True,
+    metavar="FACTOR=VALUE",
+    help="Fill a grade factor the old file never had, such as bcfm=1.2.",
+)
+@pass_context
+@handle_errors
+def import_legacy(
+    ctx: Context,
+    path: Path,
+    party_map_path: Path | None,
+    commit: bool,
+    assumed: tuple[str, ...],
+) -> None:
+    """Read a night's file from the old system and write what it holds.
+
+    Dry run by default, and the dry run is not a different code path: it runs
+    the whole load and rolls back. A preview that took a shortcut would be a
+    preview of something else.
+    """
+    from ..services.legacy import load, load_summary, parse_file, summary
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    result = parse_file(text, _party_map(party_map_path))
+    click.echo(summary(result))
+    for item in result.rejected[:20]:
+        click.echo(f"  line {item.line_number}: {item.reason}", err=True)
+
+    with ctx.unit_of_work() as uow:
+        loaded = load(uow, result, ctx.rules, assume=_assumed(assumed))
+        click.echo(load_summary(loaded))
+        for item in loaded.skipped[:20]:
+            click.echo(f"  {item.raw}: {item.reason}", err=True)
+        if commit:
+            uow.commit()
+        else:
+            click.echo("dry run, nothing written")
+
+
+def _assumed(pairs: tuple[str, ...]) -> dict[Factor, Decimal] | None:
+    """Read the factors the house is filling in for the whole migration.
+
+    Written as ``bcfm=1.2`` on the command line. A factor name nobody knows
+    is refused rather than ignored, because a silently dropped assumption is
+    a migration that grades eleven years of tickets against nothing.
+    """
+    if not pairs:
+        return None
+    filled: dict[Factor, Decimal] = {}
+    for pair in pairs:
+        name, _, value = pair.partition("=")
+        try:
+            factor = Factor(name.strip().lower())
+        except ValueError as error:
+            raise click.BadParameter(f"{name!r} is not a grade factor") from error
+        try:
+            filled[factor] = Decimal(value.strip())
+        except InvalidOperation as error:
+            raise click.BadParameter(f"{value!r} is not a number") from error
+    return filled
+
+
+def _party_map(path: Path | None) -> dict[str, str] | None:
+    """Read the old code to new code map.
+
+    The old codes are six characters and mean nothing; the house renumbered
+    everybody at go live and kept the crosswalk in a spreadsheet.
+    """
+    if path is None:
+        return None
+    mapping: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.split("#", 1)[0].strip()
+        if not text:
+            continue
+        old, _, new = text.partition(",")
+        if not new.strip():
+            raise click.BadParameter(f"{text!r} is not an old,new pair")
+        mapping[old.strip()] = new.strip()
+    return mapping
+
+
 COMMANDS = [
     export_tickets,
     export_settlements,
     export_lines,
+    import_legacy,
 ]
