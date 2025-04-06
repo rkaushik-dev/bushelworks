@@ -17,6 +17,7 @@ the domain object splits ``owned`` from ``net_long``.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 
@@ -100,20 +101,40 @@ def contracted_bushels(
     if location_code:
         query = query.where(ContractRow.location_code == location_code)
 
+    rows = list(uow.session.scalars(query))
+    if not rows:
+        return Decimal("0.0000")
+
+    applied = _applied_by_contract(uow, [row.id for row in rows])
     outstanding = Decimal("0")
-    for row in uow.session.scalars(query):
-        applied = as_decimal(
-            uow.session.scalar(
-                select(func.sum(ApplicationRow.bushels)).where(
-                    ApplicationRow.contract_id == row.id,
-                    ApplicationRow.reversed_on.is_(None),
-                )
-            )
-        )
-        remaining = as_decimal(row.bushels) - applied
+    for row in rows:
+        remaining = as_decimal(row.bushels) - applied.get(row.id, Decimal("0"))
         if remaining > 0:
             outstanding += remaining
     return quantize(outstanding, BUSHEL_PLACES)
+
+
+def _applied_by_contract(
+    uow: UnitOfWork, contract_ids: Sequence[int]
+) -> dict[int, Decimal]:
+    """Bushels already applied, per contract, in one statement.
+
+    This used to be one query per open contract. On a house with two hundred
+    open contracts the daily position was two hundred and six statements for a
+    number that is one group by, and over the office network share that was most
+    of the four seconds the manager waited for his screen.
+    """
+    if not contract_ids:
+        return {}
+    rows = uow.session.execute(
+        select(ApplicationRow.contract_id, func.sum(ApplicationRow.bushels))
+        .where(
+            ApplicationRow.contract_id.in_(contract_ids),
+            ApplicationRow.reversed_on.is_(None),
+        )
+        .group_by(ApplicationRow.contract_id)
+    )
+    return {int(contract_id): as_decimal(total) for contract_id, total in rows}
 
 
 def line_for(

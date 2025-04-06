@@ -43,6 +43,14 @@ class ContractRow(Base, TimestampMixin):
         ),
         Index("ix_purchase_contract_party_code", "party_code", "status"),
         Index("ix_purchase_contract_window_closes", "window_closes"),
+        # Open contracts for one commodity inside a window, which is the
+        # position query and the contract application search.
+        Index(
+            "ix_purchase_contract_open_window",
+            "commodity_code",
+            "status",
+            "window_closes",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -85,6 +93,14 @@ class ApplicationRow(Base, TimestampMixin):
             "ticket_id", "contract_id", name="uq_contract_application_ticket_id"
         ),
         Index("ix_contract_application_applied_on", "applied_on"),
+        # The daily position groups live applications by contract. Without
+        # this it is a table scan per position run, which is every thirty
+        # seconds while the manager has his screen open.
+        Index(
+            "ix_contract_application_contract_live",
+            "contract_id",
+            "reversed_on",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -107,6 +123,14 @@ class SettlementRow(Base, TimestampMixin):
         UniqueConstraint("number", name="uq_settlement_number"),
         Index("ix_settlement_party_code", "party_code", "settled_on"),
         Index("ix_settlement_settled_on", "settled_on"),
+        # The patronage table walks a crop year of live settlements at one
+        # site. Thirty thousand rows, once a year, and it used to scan.
+        Index(
+            "ix_settlement_live_by_site",
+            "location_code",
+            "voided",
+            "settled_on",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

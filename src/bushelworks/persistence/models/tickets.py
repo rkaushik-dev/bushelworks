@@ -45,6 +45,17 @@ class ScaleTicketRow(Base, TimestampMixin):
         Index("ix_scale_ticket_scale_date", "scale_date"),
         Index("ix_scale_ticket_party_code", "party_code"),
         Index("ix_scale_ticket_commodity_code", "commodity_code", "scale_date"),
+        # A ticket number read out over the telephone, with no site given.
+        Index("ix_scale_ticket_ticket_number", "ticket_number"),
+        # The settlement run asks for what is waiting at one site, which is a
+        # scan of the whole ticket file without this.
+        Index(
+            "ix_scale_ticket_waiting",
+            "location_code",
+            "settled",
+            "voided",
+            "scale_date",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
