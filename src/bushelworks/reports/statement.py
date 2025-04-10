@@ -52,12 +52,18 @@ def amount_row(code: str, description: str, dollars: Decimal) -> str:
     million dollars formats to thirteen and pushed the line to eighty one, which
     the dot matrix wraps onto a second line and the producer reads as a second
     charge. The description gives the room up instead.
+
+    The code column keeps one character back for the gap. An advance reference
+    is thirteen characters and filled the column exactly, so the line printed
+    as ``ADV-2024-091advance of 2024-09-12`` with nothing between them, which
+    reads as one word and hides the fact that the code was cut short.
     """
     rendered = format_amount(dollars)
     room = WIDTH - 2 - CODE_WIDTH - len(rendered)
     if room < 1:
         room = 1
-    return f"  {code[:CODE_WIDTH]:<{CODE_WIDTH}}{description[:room]:<{room}}{rendered}"
+    shown = code[: CODE_WIDTH - 1]
+    return f"  {shown:<{CODE_WIDTH}}{description[:room]:<{room}}{rendered}"
 
 
 def total_row(label: str, dollars: Decimal) -> str:
