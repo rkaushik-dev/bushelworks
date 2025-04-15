@@ -189,3 +189,62 @@ def test_the_summary_names_what_went_wrong():
     text_summary = summary(parse_file(text))
     assert "1 refused" in text_summary
     assert "disposition" in text_summary
+
+
+def test_the_package_still_exports_everything_it_used_to():
+    """The split is meant to be invisible.
+
+    Two modules and a command import from ``bushelworks.services.legacy``, and
+    the point of the package was that not one of them had to change.
+    """
+    from bushelworks.services import legacy
+
+    for name in (
+        "DISPOSITIONS",
+        "LAYOUT",
+        "RECORD_LENGTH",
+        "LegacyImportError",
+        "Loaded",
+        "Rejected",
+        "Result",
+        "Row",
+        "duplicates",
+        "field_at",
+        "load",
+        "load_summary",
+        "parse_file",
+        "parse_line",
+        "summary",
+        "to_ticket",
+    ):
+        assert hasattr(legacy, name), name
+        assert name in legacy.__all__
+
+
+def test_the_reader_does_not_reach_for_the_database():
+    """Parsing has no business knowing there is one.
+
+    This is the wall the split was for. A parse module that imports the unit of
+    work will eventually write through it, and then a dry run is not a dry run.
+    """
+    import inspect
+
+    from bushelworks.services.legacy import parse
+
+    source = inspect.getsource(parse)
+    assert "UnitOfWork" not in source
+    assert "record_load" not in source
+
+
+def test_the_writer_leans_on_the_reader_and_not_the_other_way():
+    import importlib
+    import inspect
+
+    from bushelworks.services.legacy import parse
+
+    # ``from ... import load`` gives the function, because the package
+    # re-exports it under the same name as its module.
+    load_module = importlib.import_module("bushelworks.services.legacy.load")
+
+    assert "from .parse import" in inspect.getsource(load_module)
+    assert "from .load import" not in inspect.getsource(parse)
