@@ -42,6 +42,42 @@ def init_db(ctx: Context) -> None:
     click.echo(f"schema built at {ctx.settings.database_url}")
 
 
+@cli.command("changes")
+@click.option(
+    "--since",
+    "from_version",
+    default=None,
+    help="Only what was released after this version.",
+)
+@click.option(
+    "--breaking/--all",
+    "breaking_only",
+    default=False,
+    help="Only the lines somebody has to be telephoned about.",
+)
+def show_changes(from_version: str | None, breaking_only: bool) -> None:
+    """What changed, so the house can read it before it upgrades."""
+    from ..release import HISTORY, breaking_since, migrations_since, render_history, since
+
+    entries = HISTORY if from_version is None else since(from_version)
+    if breaking_only:
+        lines = breaking_since(from_version or "0.0.0")
+        for line in lines:
+            click.echo(line)
+        if not lines:
+            click.echo("nothing breaking")
+        return
+    if not entries:
+        click.echo("nothing since then")
+        return
+    click.echo(render_history(entries))
+    if from_version is not None:
+        revisions = migrations_since(from_version)
+        if revisions:
+            click.echo("")
+            click.echo(f"this upgrade runs {len(revisions)} migrations")
+
+
 @cli.command("seed")
 @click.option(
     "--force/--no-force",
