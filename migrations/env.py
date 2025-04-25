@@ -20,7 +20,7 @@ from sqlalchemy import engine_from_config, pool
 
 from bushelworks.config import load_settings
 from bushelworks.persistence.base import metadata
-from bushelworks.persistence import models  # noqa: F401  registers the tables
+from bushelworks.persistence import models  # registers the tables on the metadata
 
 config = context.config
 
