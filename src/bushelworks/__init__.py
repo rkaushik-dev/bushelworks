@@ -5,7 +5,7 @@ module, the API reports it on ``/health`` and the CLI prints it, so there is one
 place to change it and no chance of the three disagreeing.
 """
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = ["__version__", "version_tuple"]
 

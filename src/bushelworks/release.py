@@ -125,6 +125,20 @@ HISTORY: tuple[Release, ...] = (
         ),
         migrations=("b73d1e58cf20",),
     ),
+    Release(
+        version="0.8.0",
+        released_on=date(2025, 5, 26),
+        summary="The general ledger, and the periods that decide what can post.",
+        changes=(
+            "a chart of accounts, where an account with sub accounts is a"
+            " heading and will not take a posting itself",
+            "an append only journal, corrected by posting a reverse rather than"
+            " by editing anything",
+            "accounting periods, so a ticket keyed after the return went in"
+            " lands in the month that is still open",
+        ),
+        migrations=("c5f0a92b7e14",),
+    ),
 )
 
 

@@ -27,6 +27,7 @@ from ..errors import ConflictError
 from .repositories import (
     ComplaintRepository,
     ContractRepository,
+    LedgerRepository,
     PartyRepository,
     SettlementRepository,
     TicketRepository,
@@ -44,6 +45,7 @@ class UnitOfWork:
         self._settlements: SettlementRepository | None = None
         self._parties: PartyRepository | None = None
         self._complaints: ComplaintRepository | None = None
+        self._ledger: LedgerRepository | None = None
         self._committed = False
 
     def __enter__(self) -> UnitOfWork:
@@ -56,6 +58,7 @@ class UnitOfWork:
         self._settlements = SettlementRepository(session)
         self._parties = PartyRepository(session)
         self._complaints = ComplaintRepository(session)
+        self._ledger = LedgerRepository(session)
         self._committed = False
         return self
 
@@ -77,6 +80,7 @@ class UnitOfWork:
             self._settlements = None
             self._parties = None
             self._complaints = None
+            self._ledger = None
 
     def _require(self, thing: object, name: str) -> None:
         if thing is None:
@@ -119,6 +123,12 @@ class UnitOfWork:
         self._require(self._complaints, "complaint repository")
         assert self._complaints is not None
         return self._complaints
+
+    @property
+    def ledger(self) -> LedgerRepository:
+        self._require(self._ledger, "ledger repository")
+        assert self._ledger is not None
+        return self._ledger
 
     @property
     def is_open(self) -> bool:

@@ -123,7 +123,7 @@ def test_a_jump_of_two_returns_two():
 
 
 def test_a_version_nobody_shipped_still_answers():
-    assert len(since("0.5.5")) == 2
+    assert len(since("0.5.5")) == 3
 
 
 def test_the_breaking_notes_carry_their_version():
@@ -158,7 +158,8 @@ def test_one_release_renders_as_a_block():
 
 
 def test_a_breaking_note_is_marked_in_the_block():
-    text = render(latest())
+    loud = next(entry for entry in HISTORY if entry.breaking)
+    text = render(loud)
     assert any(line.strip().startswith("!") for line in text.split("\n"))
 
 

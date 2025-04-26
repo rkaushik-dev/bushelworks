@@ -14,6 +14,7 @@ imports from ``bushelworks.persistence.repositories``.
 """
 
 from .contracts import ContractNotFound, ContractRepository
+from .ledger import JournalEntryNotFound, LedgerRepository, PeriodNotFound
 from .quality import ComplaintNotFound, ComplaintRepository
 from .reference import PartyNotFound, PartyRepository
 from .settlements import SettlementNotFound, SettlementRepository
@@ -24,8 +25,11 @@ __all__ = [
     "ComplaintRepository",
     "ContractNotFound",
     "ContractRepository",
+    "JournalEntryNotFound",
+    "LedgerRepository",
     "PartyNotFound",
     "PartyRepository",
+    "PeriodNotFound",
     "SettlementNotFound",
     "SettlementRepository",
     "TicketNotFound",
