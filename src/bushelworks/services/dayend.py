@@ -6,11 +6,19 @@ them does not tie:
 
 1. counts what came in and what went out
 2. rebuilds the position and compares it with the previous close
-3. checks that every settlement written today balances line by line
+3. posts the day's settlements to the journal and reads the books back
 4. checks that the ticket numbers issued today have no holes in them
 
 A close that fails is not an error to be shrugged at. It means one of the day's
 documents is wrong and the office finds out now rather than at year end.
+
+Step three used to re-add every settlement's lines here and compare the total
+against the header, which was a second implementation of the arithmetic the
+statement had already done. It agreed with itself and proved nothing. Posting
+the statement is a stronger check for the same work: an entry whose legs do not
+balance cannot be written down at all, and a day whose trial balance is out
+names an account rather than a settlement number, which is what the person
+looking for it actually needs.
 """
 
 from __future__ import annotations
@@ -21,8 +29,10 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from ..domain.ledger import trial_balance
 from ..domain.position import PositionReport
-from ..errors import ConflictError, ValidationError
+from ..domain.settlement import Settlement
+from ..errors import ConflictError, LookupFailure, ValidationError
 from ..logging import event, failure, get_logger
 from ..money import amount, total
 from ..persistence.base import as_decimal
@@ -30,6 +40,12 @@ from ..persistence.models import ScaleTicketRow, SettlementRow
 from ..persistence.unitofwork import UnitOfWork
 from ..units import BUSHEL_PLACES, quantize
 from .positions import build_report
+from .posting import (
+    AlreadyPosted,
+    PeriodClosed,
+    entry_for_settlement,
+    post_settlement,
+)
 from .shipping import shipped_bushels
 
 _log = get_logger("dayend")
@@ -64,6 +80,7 @@ class Close:
     bushels_out: Decimal = Decimal("0")
     settlements_written: int = 0
     settled_value: Decimal = Decimal("0.00")
+    entries_posted: tuple[str, ...] = ()
     position: PositionReport | None = None
     discrepancies: list[Discrepancy] = field(default_factory=list)
 
@@ -111,20 +128,95 @@ def _check_numbering(close: Close, tickets: list[ScaleTicketRow]) -> None:
         )
 
 
-def _check_settlements(close: Close, settlements: list[SettlementRow]) -> None:
+def _check_settlements(
+    close: Close, uow: UnitOfWork, settlements: list[SettlementRow]
+) -> list[Settlement]:
+    """The stored totals have to agree with the lines they were summed from.
+
+    ``gross``, ``deductions`` and ``net`` are kept on the header so the register
+    can be listed without reading every line. That makes them a copy, and a copy
+    is something that can drift. Rebuilding the statement from its lines and
+    comparing is one comparison instead of three re-implementations of the
+    arithmetic, and it checks all three columns rather than the two the hand
+    written version got round to.
+
+    Only the statements that reconcile are handed on to be posted. A header the
+    house cannot trust is not something to put in the ledger.
+    """
+    sound: list[Settlement] = []
     for row in settlements:
-        lines = total(as_decimal(line.dollars) for line in row.lines if line.kind == "gross")
-        if amount(lines) != amount(row.gross):
+        statement = uow.settlements.get(row.number)
+        drifted = [
+            (name, stored, computed)
+            for name, stored, computed in (
+                ("gross", as_decimal(row.gross), statement.gross),
+                ("deductions", as_decimal(row.deductions), statement.deductions),
+                ("net", as_decimal(row.net), statement.net),
+            )
+            if amount(stored) != amount(computed)
+        ]
+        if drifted:
+            name, stored, computed = drifted[0]
             close.note(
                 "settlement",
-                f"{row.number} gross {row.gross} does not match its lines {lines}",
+                f"{row.number} {name} {stored} does not match its lines {computed}",
             )
-        expected = amount(as_decimal(row.gross) - as_decimal(row.deductions))
-        if expected != amount(row.net):
+            continue
+        sound.append(statement)
+    return sound
+
+
+def _post_settlements(
+    close: Close, uow: UnitOfWork, statements: list[Settlement], dry_run: bool
+) -> None:
+    """Write the day's statements into the journal, or say why one will not go.
+
+    A statement that has already been posted is not a problem. The close is run
+    twice most days, once before the last load is keyed and once after, and the
+    second run has nothing to do for the ones the first run wrote.
+    """
+    posted: list[str] = []
+    for statement in statements:
+        number = uow.ledger.next_number("J", close.day)
+        try:
+            if dry_run:
+                entry_for_settlement(statement, number, close.day)
+            else:
+                entry = post_settlement(uow, statement, number, close.day)
+                posted.append(entry.number)
+        except AlreadyPosted:
+            continue
+        except PeriodClosed as refusal:
+            close.note("period", str(refusal))
+            return
+        except LookupFailure as missing:
+            close.note("period", f"nothing to post into: {missing}")
+            return
+        except (ValidationError, ConflictError) as refusal:
             close.note(
-                "settlement",
-                f"{row.number} net {row.net} is not gross less deductions {expected}",
+                "settlement", f"{statement.number} will not post: {refusal}"
             )
+    close.entries_posted = tuple(posted)
+
+
+def _check_the_books(close: Close, uow: UnitOfWork) -> None:
+    """Read the day back off the journal and make sure it adds up.
+
+    Every entry balances on its own or it could not have been written, so this
+    can only fail on a hand written back fill. That is exactly the case worth
+    catching, and it is the reason the check reads the table rather than the
+    entries the close just built.
+    """
+    entries = uow.ledger.entries_between(close.day, close.day)
+    if not entries:
+        return
+    balance = trial_balance(uow.ledger.chart(), entries, through=close.day)
+    if not balance.balances:
+        close.note(
+            "journal",
+            f"the day posts {balance.debits} of debits against {balance.credits} "
+            f"of credits",
+        )
 
 
 def _check_position(
@@ -153,8 +245,14 @@ def run_close(
     day: date,
     location_code: str = "*",
     position_tolerance: Decimal = Decimal("250000"),
+    dry_run: bool = False,
 ) -> Close:
-    """Close one day at one site, or across the house."""
+    """Close one day at one site, or across the house.
+
+    ``dry_run`` builds every entry and reports what would refuse, without
+    writing any of them. The office runs it that way at four o'clock to see
+    whether the day is going to close before it starts chasing a driver.
+    """
     site = None if location_code == "*" else location_code
     close = Close(day=day, location_code=location_code)
 
@@ -181,7 +279,9 @@ def run_close(
         )
 
     _check_numbering(close, live)
-    _check_settlements(close, settlements)
+    sound = _check_settlements(close, uow, settlements)
+    _post_settlements(close, uow, sound, dry_run)
+    _check_the_books(close, uow)
     _check_position(close, uow, day, location_code, position_tolerance)
 
     if close.is_clean:
@@ -227,6 +327,7 @@ def render(close: Close, house_name: str = "BUSHELWORKS ELEVATOR") -> str:
         f"{'net bushels':<28}{close.net_bushels:>12}",
         f"{'settlements written':<28}{close.settlements_written:>12}",
         f"{'settled value':<28}{close.settled_value:>12}",
+        f"{'entries posted':<28}{len(close.entries_posted):>12}",
         "-" * width,
     ]
     if close.position is not None:
