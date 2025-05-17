@@ -11,7 +11,6 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import event
 
 from bushelworks.domain.contracts import ContractKind, DeliveryWindow, PurchaseContract
 from bushelworks.persistence.base import create_all, drop_all, engine_for, session_factory
@@ -22,36 +21,10 @@ from bushelworks.services.settlement_run import (
     price_from,
     settle_producer,
 )
+from support import Counter
 
 SETTLED = date(2024, 10, 20)
 SPOT = Decimal("4.3500")
-
-
-class Counter:
-    """Counts the statements an engine executes while it is armed."""
-
-    def __init__(self, engine) -> None:
-        self.engine = engine
-        self.statements: list[str] = []
-
-    def __enter__(self) -> "Counter":
-        event.listen(self.engine, "before_cursor_execute", self._record)
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        event.remove(self.engine, "before_cursor_execute", self._record)
-
-    def _record(self, conn, cursor, statement, parameters, context, executemany):
-        self.statements.append(statement)
-
-    @property
-    def count(self) -> int:
-        return len(self.statements)
-
-    def selecting(self, table: str) -> int:
-        return len(
-            [item for item in self.statements if f"FROM {table}" in item]
-        )
 
 
 @pytest.fixture

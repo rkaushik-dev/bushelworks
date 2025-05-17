@@ -17,20 +17,17 @@ that never happened, and netting it against a real one hides both.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from ..domain.settlement import LineKind
 from ..money import amount
 from ..persistence.base import as_decimal
 from ..persistence.models import (
     Party,
-    SettlementLineRow,
-    SettlementRow,
-    SettlementTicketRow,
 )
 from ..persistence.unitofwork import UnitOfWork
 from ..reports.patronage import Line, PatronageError, Year
@@ -55,51 +52,6 @@ def _names(uow: UnitOfWork, codes: Iterable[str]) -> dict[str, str]:
     return {row.code: row.name for row in rows}
 
 
-def _settlements(
-    uow: UnitOfWork,
-    opens: date,
-    closes: date,
-    location_code: str | None = None,
-) -> list[SettlementRow]:
-    query = select(SettlementRow).where(
-        SettlementRow.settled_on >= opens,
-        SettlementRow.settled_on <= closes,
-        SettlementRow.voided.is_(False),
-    )
-    if location_code:
-        query = query.where(SettlementRow.location_code == location_code)
-    return list(uow.session.scalars(query))
-
-
-def _ticket_count(uow: UnitOfWork, settlement_id: int) -> int:
-    """Loads on one statement.
-
-    The count is off the join table rather than the line count, because a
-    statement with fourteen tickets on it prints one gross line.
-    """
-    return int(
-        uow.session.scalar(
-            select(func.count())
-            .select_from(SettlementTicketRow)
-            .where(SettlementTicketRow.settlement_id == settlement_id)
-        )
-        or 0
-    )
-
-
-def _totals(rows: Sequence[SettlementLineRow]) -> tuple[Decimal, Decimal]:
-    """Bushels off the gross lines, margin off the charge lines."""
-    bushels = Decimal("0")
-    margin = Decimal("0")
-    kinds = {kind.value for kind in MARGIN_KINDS}
-    for row in rows:
-        if row.kind == LineKind.GROSS.value and row.quantity is not None:
-            bushels += as_decimal(row.quantity)
-        elif row.kind in kinds:
-            margin += as_decimal(row.dollars)
-    return bushels, margin
-
-
 def build_year(
     uow: UnitOfWork,
     opens: date,
@@ -121,13 +73,30 @@ def build_year(
     charges: dict[str, Decimal] = {}
     loads: dict[str, int] = {}
 
-    for row in _settlements(uow, opens, closes, location_code):
+    settled = uow.settlements.in_window(opens, closes, location_code=location_code)
+    ids = [row.id for row in settled]
+    counts = uow.settlements.ticket_counts(ids)
+    margin_kinds = {kind.value for kind in MARGIN_KINDS}
+    by_settlement: dict[int, tuple[Decimal, Decimal]] = {}
+    for line in uow.settlements.line_totals(ids):
+        volume, margin = by_settlement.get(
+            line.settlement_id, (Decimal("0"), Decimal("0"))
+        )
+        if line.kind == LineKind.GROSS.value:
+            volume += line.quantity
+        elif line.kind in margin_kinds:
+            margin += line.dollars
+        by_settlement[line.settlement_id] = (volume, margin)
+
+    for row in settled:
         code = row.party_code
-        settled_bushels, margin = _totals(row.lines)
+        settled_bushels, margin = by_settlement.get(
+            row.id, (Decimal("0"), Decimal("0"))
+        )
         bushels[code] = bushels.get(code, Decimal("0")) + settled_bushels
         gross[code] = gross.get(code, Decimal("0")) + as_decimal(row.gross)
         charges[code] = charges.get(code, Decimal("0")) + margin
-        loads[code] = loads.get(code, 0) + _ticket_count(uow, row.id)
+        loads[code] = loads.get(code, 0) + counts.get(row.id, 0)
 
     names = _names(uow, bushels)
     lines = tuple(

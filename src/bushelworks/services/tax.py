@@ -16,18 +16,13 @@ row in the working file so the office can see the ones that nearly made it.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
-
 from ..domain.settlement import LineKind
 from ..errors import ValidationError
 from ..money import amount, total
-from ..persistence.base import as_decimal
-from ..persistence.models import SettlementLineRow, SettlementRow
 from ..persistence.unitofwork import UnitOfWork
 
 REPORTING_THRESHOLD = Decimal("600.00")
@@ -77,36 +72,15 @@ class PayeeYear:
         return gap if gap > 0 else Decimal("0.00")
 
 
-def _line_totals(uow: UnitOfWork, settlement_ids: Sequence[int]) -> dict[str, Decimal]:
-    if not settlement_ids:
-        return {}
-    rows = uow.session.execute(
-        select(SettlementLineRow.kind, SettlementLineRow.dollars).where(
-            SettlementLineRow.settlement_id.in_(settlement_ids)
-        )
-    )
-    totals: dict[str, Decimal] = {}
-    for kind, dollars in rows:
-        totals[kind] = totals.get(kind, Decimal("0")) + as_decimal(dollars)
-    return totals
-
-
 def payee_year(uow: UnitOfWork, party_code: str, year: int) -> PayeeYear:
     """One producer, one year, from the settlements as written."""
     if year < 2000 or year > 2100:
         raise TaxError(f"implausible reporting year {year}")
 
-    rows = list(
-        uow.session.scalars(
-            select(SettlementRow).where(
-                SettlementRow.party_code == party_code,
-                SettlementRow.settled_on >= date(year, 1, 1),
-                SettlementRow.settled_on <= date(year, 12, 31),
-                SettlementRow.voided.is_(False),
-            )
-        )
+    rows = uow.settlements.in_window(
+        date(year, 1, 1), date(year, 12, 31), party_code=party_code
     )
-    totals = _line_totals(uow, [row.id for row in rows])
+    totals = uow.settlements.totals_by_kind([row.id for row in rows])
     gross = totals.get(LineKind.GROSS.value, Decimal("0"))
     reductions = total(
         value for kind, value in totals.items() if kind in REPORTABLE_REDUCTIONS
@@ -124,16 +98,9 @@ def payee_year(uow: UnitOfWork, party_code: str, year: int) -> PayeeYear:
 
 def payees(uow: UnitOfWork, year: int) -> list[PayeeYear]:
     """Everybody the house settled with in a year, biggest first."""
-    codes = uow.session.scalars(
-        select(SettlementRow.party_code)
-        .where(
-            SettlementRow.settled_on >= date(year, 1, 1),
-            SettlementRow.settled_on <= date(year, 12, 31),
-            SettlementRow.voided.is_(False),
-        )
-        .distinct()
-    )
-    found = [payee_year(uow, code, year) for code in sorted(set(codes))]
+    settled = uow.settlements.in_window(date(year, 1, 1), date(year, 12, 31))
+    codes = sorted({row.party_code for row in settled})
+    found = [payee_year(uow, code, year) for code in codes]
     return sorted(found, key=lambda p: (-p.reportable, p.party_code))
 
 

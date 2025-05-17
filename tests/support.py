@@ -7,9 +7,12 @@ settlement rule it carried. It is gone; this is the part they actually wanted.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
+
+from sqlalchemy import event
 
 from bushelworks.domain.rulebook import RuleBook
 from bushelworks.domain.settlement import LineKind, Settlement, SettlementBuilder
@@ -119,3 +122,37 @@ def settlement_for(
         party_code=party_code,
         **kwargs,  # type: ignore[arg-type]
     )
+
+
+class Counter:
+    """Counts the statements an engine executes while it is armed.
+
+    Lived in two test modules with the same body until the settlement rollups
+    went in and needed a third. The copies matched table names by substring,
+    which counts ``FROM settlement_line`` as a read of ``settlement`` and makes
+    every count in a query test come out high. This one matches on a word
+    boundary.
+    """
+
+    def __init__(self, engine) -> None:
+        self.engine = engine
+        self.statements: list[str] = []
+
+    def __enter__(self) -> Counter:
+        event.listen(self.engine, "before_cursor_execute", self._record)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        event.remove(self.engine, "before_cursor_execute", self._record)
+
+    def _record(self, conn, cursor, statement, parameters, context, executemany):
+        self.statements.append(statement)
+
+    @property
+    def count(self) -> int:
+        return len(self.statements)
+
+    def selecting(self, table: str) -> int:
+        """Statements that read one named table."""
+        pattern = re.compile(rf"FROM {re.escape(table)}\b")
+        return len([item for item in self.statements if pattern.search(item)])
