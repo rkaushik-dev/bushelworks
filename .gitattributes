@@ -3,3 +3,23 @@
 *.toml text eol=lf
 *.yml text eol=lf
 *.md text eol=lf
+
+# Language detection. GitHub works the primary language out from byte counts,
+# and anything that is not ours should not be in that count. The alembic
+# template is the framework's own scaffold and it is the only file in the tree
+# that reports as anything other than Python.
+migrations/script.py.mako linguist-vendored
+
+# Said outright rather than left to the extension, so a file that gains a
+# second suffix does not quietly change what this repository is.
+*.py linguist-language=Python
+*.py linguist-detectable=true
+
+# Tests are ours and they count. Linguist does not vendor a top level tests
+# directory today, but it has changed its mind about paths before and half
+# this repository is in here.
+tests/** linguist-vendored=false
+tests/** linguist-generated=false
+
+# Migrations are hand written and reviewed, not generated output.
+migrations/versions/*.py linguist-generated=false

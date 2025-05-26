@@ -136,6 +136,12 @@ HISTORY: tuple[Release, ...] = (
             " by editing anything",
             "accounting periods, so a ticket keyed after the return went in"
             " lands in the month that is still open",
+            "the day close posts the statements it counted and reads the"
+            " books back, instead of adding the lines up a second time",
+            "trial balance, income statement and balance sheet, over http and"
+            " on the command line",
+            "the year end close, which empties revenue and expense into equity"
+            " and can send part of it to a patronage account",
         ),
         migrations=("c5f0a92b7e14",),
     ),

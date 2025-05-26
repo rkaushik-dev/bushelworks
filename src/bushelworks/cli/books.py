@@ -20,6 +20,8 @@ import click
 from ..domain.ledger import ChartOfAccounts, TrialBalance, trial_balance
 from ..persistence.unitofwork import UnitOfWork
 from ..reports.ledger import balance_sheet, income_statement, to_csv, trial_balance_page
+from ..services.closing import close_year, review_year
+from ..services.closing import render as render_year
 from ..services.monthend import (
     close_period,
     earliest_open,
@@ -220,6 +222,45 @@ def print_open_month(ctx: Context) -> None:
         click.echo(f"{row.code}  {row.starts_on} to {row.ends_on}")
 
 
+@click.command("year-end")
+@click.argument("year", type=int)
+@pass_context
+@handle_errors
+def review_the_year(ctx: Context, year: int) -> None:
+    """Say what closing a year would post, and write nothing."""
+    with ctx.unit_of_work() as uow:
+        click.echo(render_year(review_year(uow, year)))
+
+
+@click.command("close-year")
+@click.argument("year", type=int)
+@click.option("--by", "closed_by", required=True, help="Who is closing it.")
+@click.option(
+    "--retained",
+    default=None,
+    help="Close into this account instead of retained earnings.",
+)
+@click.option(
+    "--force/--no-force",
+    default=False,
+    help="Close over what is outstanding, and record who did.",
+)
+@pass_context
+@handle_errors
+def close_the_year(
+    ctx: Context, year: int, closed_by: str, retained: str | None, force: bool
+) -> None:
+    """Empty the revenue and expense accounts into equity."""
+    with ctx.unit_of_work() as uow:
+        if retained is None:
+            found = close_year(uow, year, closed_by, force=force)
+        else:
+            found = close_year(uow, year, closed_by, retained=retained, force=force)
+        page = render_year(found)
+        uow.commit()
+    click.echo(page)
+
+
 COMMANDS = [
     print_chart,
     print_trial_balance,
@@ -231,4 +272,6 @@ COMMANDS = [
     close_month,
     reopen_month,
     print_open_month,
+    review_the_year,
+    close_the_year,
 ]
