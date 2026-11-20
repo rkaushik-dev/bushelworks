@@ -1,0 +1,120 @@
+plugins {
+	id 'java'
+	id 'jacoco'
+	id 'com.diffplug.spotless' version '7.0.4'
+	id 'org.springframework.boot' version '3.5.16'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'io.github.rkaushikdev'
+version = '0.8.0'
+description = 'Scale house capture and settlement for country grain elevators'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Hibernate, spring-orm and the connection pool. Boot's own JPA, DataSource and Flyway
+	// auto-configuration is switched off: the application builds its database itself.
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'com.h2database:h2'
+	implementation 'info.picocli:picocli:4.7.7'
+	annotationProcessor 'info.picocli:picocli-codegen:4.7.7'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	// Exceptions here are never serialized, so serial lint is noise; annotation processors on
+	// the classpath warn about annotations nobody claims.
+	options.compilerArgs.addAll([
+		'-Xlint:all,-serial,-processing',
+		'-Werror'
+	])
+}
+
+tasks.named('compileJava', JavaCompile) {
+	// Only the main compile runs picocli's processor; the test compile has nothing to claim it.
+	options.compilerArgs << "-Aproject=${project.group}/${project.name}"
+}
+
+springBoot {
+	// The jar runs the command line; only `bushelworks serve` starts Spring.
+	mainClass = 'io.github.rkaushikdev.bushelworks.cli.Main'
+}
+
+tasks.named('jar', Jar) {
+	// The runnable jar is the boot jar; the plain one is not published.
+	enabled = false
+}
+
+tasks.named('test', Test) {
+	useJUnitPlatform()
+	// The README and source hygiene checks read files relative to the project root.
+	workingDir = projectDir
+	maxParallelForks = 1
+	// Mockito's agent appends to the boot class path; without class-data sharing the JVM has
+	// nothing to warn about.
+	jvmArgs '-Xshare:off'
+	testLogging {
+		events 'failed'
+		exceptionFormat = 'full'
+	}
+	finalizedBy tasks.named('jacocoTestReport')
+}
+
+jacoco {
+	toolVersion = '0.8.13'
+}
+
+tasks.named('jacocoTestReport', JacocoReport) {
+	dependsOn tasks.named('test')
+	reports {
+		xml.required = true
+		html.required = true
+	}
+}
+
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+	dependsOn tasks.named('test')
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+spotless {
+	java {
+		target 'src/**/*.java'
+		palantirJavaFormat()
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
+	groovyGradle {
+		target '*.gradle'
+		greclipse()
+	}
+}

@@ -1,8 +1,23 @@
+# Gradle and the JVM
+build/
+.gradle/
+out/
+
+# Editors
+.idea/
+*.iml
+.vscode/
+
+# Database files written by local runs
+*.mv.db
+*.trace.db
+*.sqlite3
+*.db
+
 __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
-build/
 dist/
 .venv/
 venv/
@@ -13,7 +28,3 @@ venv/
 .coverage
 coverage.xml
 htmlcov/
-*.sqlite3
-*.db
-.idea/
-.vscode/
