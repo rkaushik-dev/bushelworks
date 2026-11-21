@@ -14,17 +14,5 @@ out/
 *.sqlite3
 *.db
 
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
-dist/
-.venv/
-venv/
+# Local settings
 .env
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-coverage.xml
-htmlcov/

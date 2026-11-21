@@ -1,9 +1,7 @@
+# Text files are LF in the index and in the checkout on every platform: the printed statements are
+# compared with their fixture files byte for byte, so a CRLF checkout would fail them for nothing.
 * text=auto eol=lf
 gradlew text eol=lf
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.jar binary
-*.py text eol=lf
-*.toml text eol=lf
-*.yml text eol=lf
-*.md text eol=lf
