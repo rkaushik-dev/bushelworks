@@ -1,5 +1,6 @@
 package io.github.rkaushikdev.bushelworks.reports.ach;
 
+import io.github.rkaushikdev.bushelworks.Quoting;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -33,7 +34,7 @@ public record Credit(
             throw new AchError(partyCode + ": an ACH credit has to be positive");
         }
         if (!Ach.isNineDigits(routingNumber)) {
-            throw new AchError(partyCode + ": " + Ach.quoted(routingNumber) + " is not a routing number");
+            throw new AchError(partyCode + ": " + Quoting.quoted(routingNumber) + " is not a routing number");
         }
         if (accountNumber.isEmpty()) {
             throw new AchError(partyCode + ": no account number");

@@ -1,5 +1,6 @@
 package io.github.rkaushikdev.bushelworks.reports.ach;
 
+import io.github.rkaushikdev.bushelworks.Quoting;
 import java.util.Objects;
 
 /**
@@ -18,7 +19,7 @@ public record Originator(String name, String companyId, String routingNumber, St
         Objects.requireNonNull(routingNumber, "routingNumber");
         Objects.requireNonNull(bankName, "bankName");
         if (!Ach.isNineDigits(routingNumber)) {
-            throw new AchError(Ach.quoted(routingNumber) + " is not a routing number");
+            throw new AchError(Quoting.quoted(routingNumber) + " is not a routing number");
         }
         if (companyId.codePointCount(0, companyId.length()) != 10) {
             throw new AchError("a company id is ten characters");

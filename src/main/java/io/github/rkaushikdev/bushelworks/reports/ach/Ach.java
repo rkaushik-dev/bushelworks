@@ -1,5 +1,7 @@
 package io.github.rkaushikdev.bushelworks.reports.ach;
 
+import static io.github.rkaushikdev.bushelworks.Quoting.quoted;
+
 import io.github.rkaushikdev.bushelworks.reports.Columns;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -184,14 +186,6 @@ public final class Ach {
     /** Whether text is exactly nine digits. */
     static boolean isNineDigits(String text) {
         return text.length() == 9 && text.chars().allMatch(Character::isDigit);
-    }
-
-    /** Text as a refusal quotes it: in single quotes, or double ones when it holds a single quote. */
-    static String quoted(String text) {
-        if (text.indexOf('\'') >= 0 && text.indexOf('"') < 0) {
-            return '"' + text.replace("\\", "\\\\") + '"';
-        }
-        return '\'' + text.replace("\\", "\\\\").replace("'", "\\'") + '\'';
     }
 
     private static int digit(char letter) {
