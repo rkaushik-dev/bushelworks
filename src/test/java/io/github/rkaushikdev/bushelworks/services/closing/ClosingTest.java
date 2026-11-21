@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.rkaushikdev.bushelworks.Capture;
 import io.github.rkaushikdev.bushelworks.ConflictError;
 import io.github.rkaushikdev.bushelworks.HouseFixtures;
+import io.github.rkaushikdev.bushelworks.cli.Main;
+import io.github.rkaushikdev.bushelworks.cli.Shell;
 import io.github.rkaushikdev.bushelworks.domain.ledger.Account;
 import io.github.rkaushikdev.bushelworks.domain.ledger.AccountType;
 import io.github.rkaushikdev.bushelworks.domain.ledger.ChartOfAccounts;
@@ -527,6 +529,57 @@ class ClosingTest {
         void aClosedSetIsEmpty() {
             assertThat(Closing.accountsLeftOpen(chart, trialBalance(chart, List.of(), NEW_YEAR)))
                     .isEmpty();
+        }
+    }
+
+    /** The same finished year, run from the command line. */
+    @Nested
+    class Commands extends OnFile {
+
+        Shell shell;
+
+        @BeforeEach
+        void onFile() {
+            house();
+            shell = Shell.on(database);
+        }
+
+        @Test
+        void reviewingTheYearWritesNothing() {
+            Shell.Result found = shell.run("year-end", "2024");
+            assertThat(found.code()).isZero();
+            assertThat(found.output()).contains("would close clean");
+            assertThat(shell.run("year-end", "2024").output()).contains("would close clean");
+        }
+
+        @Test
+        void theYearCloses() {
+            Shell.Result found = shell.run("close-year", "2024", "--by", "office");
+            assertThat(found.code()).isZero();
+            assertThat(found.output()).contains("YEAR END 2024");
+            assertThat(shell.run("year-end", "2024").output()).contains("already been closed");
+        }
+
+        @Test
+        void closingTwiceIsRefused() {
+            shell.run("close-year", "2024", "--by", "office");
+            Shell.Result again = shell.run("close-year", "2024", "--by", "office");
+            assertThat(again.code()).isEqualTo(Main.REFUSED);
+            assertThat(again.err()).contains("conflict: 2024 has already been closed");
+        }
+
+        @Test
+        void theBooksReadZeroAfterTheCommand() {
+            shell.run("close-year", "2024", "--by", "office");
+            assertThat(shell.run("income", "2024-01-01", "2024-12-31").output()).contains("0.00");
+        }
+
+        @Test
+        void itCanBeToldADifferentEquityAccount() {
+            // 3000 is a heading, and a heading takes no posting.
+            Shell.Result found = shell.run("close-year", "2024", "--by", "office", "--retained", "3000");
+            assertThat(found.code()).isEqualTo(Main.REFUSED);
+            assertThat(found.err()).contains("ledger_error: 3000");
         }
     }
 }

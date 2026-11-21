@@ -3,6 +3,7 @@ package io.github.rkaushikdev.bushelworks.cli;
 import static io.github.rkaushikdev.bushelworks.TestDecimals.d;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.rkaushikdev.bushelworks.Bushelworks;
 import io.github.rkaushikdev.bushelworks.HouseFixtures;
 import io.github.rkaushikdev.bushelworks.domain.rulebook.RuleBook;
 import io.github.rkaushikdev.bushelworks.domain.tickets.ScaleTicket;
@@ -11,6 +12,7 @@ import io.github.rkaushikdev.bushelworks.persistence.TestDatabase;
 import io.github.rkaushikdev.bushelworks.persistence.UnitOfWork;
 import io.github.rkaushikdev.bushelworks.services.scalehouse.ScaleHouse;
 import java.nio.file.Path;
+import java.util.SortedMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -164,5 +166,29 @@ class CliTest {
         try (Database built = Database.open(url)) {
             assertThat(built.tableNames()).contains("scale_ticket");
         }
+    }
+
+    @Test
+    void theVersionIsJustTheNumber() {
+        Shell.Result result = Shell.bare().run("--version");
+        assertThat(result.code()).isZero();
+        assertThat(result.out()).isEqualTo(Bushelworks.VERSION + System.lineSeparator());
+    }
+
+    @Test
+    void theHouseLogGoesToStandardErrorAndTheAnswerToStandardOutput() {
+        loaded();
+        Shell.Result result = shell.run(SETTLE_MERRICK);
+        assertThat(result.err()).contains(" info settlement.written ");
+        assertThat(result.out()).doesNotContain("settlement.written").contains("S-2024-0001  net 7586.79");
+    }
+
+    @Test
+    void everyCommandIsSummarisedForTheReference() {
+        SortedMap<String, String> summaries = Main.commandSummaries();
+        assertThat(summaries).hasSize(Main.COMMANDS.size()).containsKeys("settle", "init-db", "serve", "close-year");
+        assertThat(summaries.values())
+                .allSatisfy(line -> assertThat(line).isNotBlank().doesNotContain("\n"));
+        assertThat(Shell.bare().run("--help").output()).contains(summaries.keySet());
     }
 }

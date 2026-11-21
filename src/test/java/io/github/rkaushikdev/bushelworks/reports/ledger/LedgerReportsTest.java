@@ -372,7 +372,9 @@ class LedgerReportsTest {
         @Test
         void filingAYearTwiceIsRefused() {
             shell.run("file-year", "2025");
-            assertThat(shell.run("file-year", "2025").code()).isEqualTo(Main.REFUSED);
+            Shell.Result again = shell.run("file-year", "2025");
+            assertThat(again.code()).isEqualTo(Main.REFUSED);
+            assertThat(again.err()).contains("conflict: period 2025-01 is already on file");
         }
     }
 }

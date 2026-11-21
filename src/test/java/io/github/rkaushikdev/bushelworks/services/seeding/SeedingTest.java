@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.bushelworks.ConflictError;
 import io.github.rkaushikdev.bushelworks.HouseFixtures;
+import io.github.rkaushikdev.bushelworks.cli.Main;
+import io.github.rkaushikdev.bushelworks.cli.Shell;
 import io.github.rkaushikdev.bushelworks.domain.tickets.SplitShare;
 import io.github.rkaushikdev.bushelworks.persistence.Database;
 import io.github.rkaushikdev.bushelworks.persistence.TestDatabase;
@@ -18,12 +20,14 @@ import io.github.rkaushikdev.bushelworks.persistence.models.ScaleTicketRow;
 import io.github.rkaushikdev.bushelworks.services.parties.Agreement;
 import io.github.rkaushikdev.bushelworks.services.parties.Parties;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class SeedingTest {
 
@@ -177,5 +181,24 @@ class SeedingTest {
     void theDescriptionIsOneLine() {
         String text = Seeding.describe(seeded());
         assertThat(text).doesNotContain("\n").contains("6 producers");
+    }
+
+    @Test
+    void theCommandSeedsAFreshDatabase(@TempDir Path tmp) {
+        Shell shell = Shell.at(Shell.fileUrl(tmp, "demo"));
+        assertThat(shell.run("init-db").code()).isZero();
+        Shell.Result result = shell.run("seed");
+        assertThat(result.code()).isZero();
+        assertThat(result.output()).contains("2 sites");
+    }
+
+    @Test
+    void theCommandRefusesToSeedTwice(@TempDir Path tmp) {
+        Shell shell = Shell.at(Shell.fileUrl(tmp, "demo"));
+        shell.run("init-db");
+        shell.run("seed");
+        Shell.Result result = shell.run("seed");
+        assertThat(result.code()).isEqualTo(Main.REFUSED);
+        assertThat(result.output()).contains("conflict");
     }
 }

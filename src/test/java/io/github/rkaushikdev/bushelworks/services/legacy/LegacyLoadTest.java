@@ -8,6 +8,8 @@ import static io.github.rkaushikdev.bushelworks.services.legacy.LegacyReader.par
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.rkaushikdev.bushelworks.HouseFixtures;
+import io.github.rkaushikdev.bushelworks.cli.Main;
+import io.github.rkaushikdev.bushelworks.cli.Shell;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
 import io.github.rkaushikdev.bushelworks.domain.rulebook.RuleBook;
 import io.github.rkaushikdev.bushelworks.domain.tickets.Disposition;
@@ -15,12 +17,17 @@ import io.github.rkaushikdev.bushelworks.domain.tickets.ScaleTicket;
 import io.github.rkaushikdev.bushelworks.persistence.Database;
 import io.github.rkaushikdev.bushelworks.persistence.TestDatabase;
 import io.github.rkaushikdev.bushelworks.persistence.UnitOfWork;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Writing the old system's file into the ticket file. */
 class LegacyLoadTest {
@@ -235,5 +242,89 @@ class LegacyLoadTest {
         }
         assertThat(loaded.written()).isEmpty();
         assertThat(loaded.skipped().get(0).reason()).contains("schedule");
+    }
+
+    @TempDir
+    Path tmp;
+
+    /** The night's file, written where the command can be pointed at it. */
+    String writeFile(String text) throws IOException {
+        Path path = tmp.resolve("tickets.dat");
+        Files.writeString(path, text, StandardCharsets.UTF_8);
+        return path.toString();
+    }
+
+    /** The old to new code crosswalk, written where the command can be pointed at it. */
+    String writeMap(String text) throws IOException {
+        Path path = tmp.resolve("codes.csv");
+        Files.writeString(path, text, StandardCharsets.UTF_8);
+        return path.toString();
+    }
+
+    boolean onFile(String ticketNumber) {
+        try (UnitOfWork uow = UnitOfWork.open(database)) {
+            return uow.tickets().exists("HOME", ticketNumber);
+        }
+    }
+
+    @Test
+    void theCommandDryRunsByDefault() throws IOException {
+        Shell.Result result = Shell.on(database).run("import-legacy", writeFile(aFile()), "--assume", "bcfm=1.2");
+        assertThat(result.code()).isZero();
+        assertThat(result.output()).contains("dry run, nothing written");
+    }
+
+    @Test
+    void aDryRunLeavesTheTicketFileAlone() throws IOException {
+        Shell.on(database).run("import-legacy", writeFile(aFile()), "--assume", "bcfm=1.2");
+        assertThat(onFile("A-10441")).isFalse();
+    }
+
+    @Test
+    void theCommandWritesWhenToldTo() throws IOException {
+        Shell.Result result =
+                Shell.on(database).run("import-legacy", writeFile(aFile()), "--assume", "bcfm=1.2", "--commit");
+        assertThat(result.output()).contains("1 tickets written");
+        assertThat(onFile("A-10441")).isTrue();
+    }
+
+    @Test
+    void theCommandReportsWhatItCouldNotRead() throws IOException {
+        String text = aFile(aLine(), "short line");
+        Shell.Result result = Shell.on(database).run("import-legacy", writeFile(text), "--assume", "bcfm=1.2");
+        assertThat(result.output()).contains("1 refused");
+    }
+
+    @Test
+    void aFileThatIsNotThereIsRefused() {
+        Shell.Result result = Shell.on(database)
+                .run("import-legacy", tmp.resolve("nowhere.dat").toString());
+        assertThat(result.code()).isEqualTo(Main.MISUSED);
+    }
+
+    @Test
+    void thePartyMapRenumbersTheProducer() throws IOException {
+        String mapping = writeMap("# from the crosswalk\nMRK001,MERRICK\n");
+        Shell.Result result = Shell.on(database)
+                .run("import-legacy", writeFile(aFile()), "--map", mapping, "--assume", "bcfm=1.2", "--commit");
+        assertThat(result.code()).isZero();
+        try (UnitOfWork uow = UnitOfWork.open(database)) {
+            assertThat(uow.tickets().row("HOME", "A-10441").getPartyCode()).isEqualTo("MERRICK");
+        }
+    }
+
+    @Test
+    void aMapLineWithNoNewCodeIsRefused() throws IOException {
+        String mapping = writeMap("MRK001\n");
+        Shell.Result result = Shell.on(database).run("import-legacy", writeFile(aFile()), "--map", mapping);
+        assertThat(result.code()).isEqualTo(Main.MISUSED);
+        assertThat(result.err()).contains("'MRK001' is not an old,new pair");
+    }
+
+    @Test
+    void aBlankMapLineIsIgnored() throws IOException {
+        String mapping = writeMap("\n# nothing here\n\nMRK001,MERRICK\n");
+        Shell.Result result = Shell.on(database).run("import-legacy", writeFile(aFile()), "--map", mapping);
+        assertThat(result.code()).isZero();
     }
 }
