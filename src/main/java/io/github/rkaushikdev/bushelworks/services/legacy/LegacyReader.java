@@ -1,5 +1,8 @@
 package io.github.rkaushikdev.bushelworks.services.legacy;
 
+import static io.github.rkaushikdev.bushelworks.Text.lines;
+import static io.github.rkaushikdev.bushelworks.Text.trimmed;
+
 import io.github.rkaushikdev.bushelworks.Decimals;
 import io.github.rkaushikdev.bushelworks.Ordered;
 import io.github.rkaushikdev.bushelworks.domain.tickets.Disposition;
@@ -274,57 +277,6 @@ public final class LegacyReader {
         } catch (NumberFormatException unreadable) {
             return Optional.empty();
         }
-    }
-
-    /**
-     * The file's lines, without their endings. A line ends at a line feed, a carriage return, the
-     * pair of them, or any of the other breaks text can carry: a vertical tab, a form feed, the file,
-     * group and record separators, a next line, a line separator or a paragraph separator. A break at
-     * the very end starts no further line.
-     */
-    static List<String> lines(String text) {
-        List<String> lines = new ArrayList<>();
-        int start = 0;
-        int index = 0;
-        while (index < text.length()) {
-            char letter = text.charAt(index);
-            if (isLineBreak(letter)) {
-                lines.add(text.substring(start, index));
-                if (letter == '\r' && index + 1 < text.length() && text.charAt(index + 1) == '\n') {
-                    index++;
-                }
-                start = index + 1;
-            }
-            index++;
-        }
-        if (start < text.length()) {
-            lines.add(text.substring(start));
-        }
-        return lines;
-    }
-
-    private static boolean isLineBreak(char letter) {
-        return switch (letter) {
-            case '\n', '\r', '\u000B', '\f', '\u001C', '\u001D', '\u001E', '\u0085', ' ', ' ' -> true;
-            default -> false;
-        };
-    }
-
-    /** {@code text} without white space at either end, no-break and other Unicode spaces included. */
-    static String trimmed(String text) {
-        int start = 0;
-        int end = text.length();
-        while (start < end && isSpace(text.charAt(start))) {
-            start++;
-        }
-        while (end > start && isSpace(text.charAt(end - 1))) {
-            end--;
-        }
-        return text.substring(start, end);
-    }
-
-    private static boolean isSpace(char letter) {
-        return Character.isWhitespace(letter) || Character.isSpaceChar(letter) || letter == '\u0085';
     }
 
     private static String quoted(String text) {

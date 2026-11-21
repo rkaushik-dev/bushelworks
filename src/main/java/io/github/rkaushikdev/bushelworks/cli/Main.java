@@ -35,8 +35,9 @@ import picocli.CommandLine.Spec;
  * position report and anything that needs to be piped into a spreadsheet happen here.
  *
  * <p>This class is the group and the commands that belong to no module of their own: building the
- * schema, the release notes and the demonstration house. The rest live in {@link GrainCommands}, and
- * {@link Serve} runs the HTTP service.
+ * schema, the release notes and the demonstration house. The rest live in {@link GrainCommands},
+ * {@link YardCommands}, {@link BoardCommands} and {@link ExportCommands}, and {@link Serve} runs the
+ * HTTP service.
  *
  * <ul>
  *   <li>Every command opens its own unit of work and commits at the end or not at all.
@@ -70,8 +71,12 @@ public final class Main implements Callable<Integer> {
     public static final int MISUSED = 2;
 
     /** The commands that hang off the group, each from the module it belongs to. */
-    static final List<Class<?>> COMMANDS =
-            commands(List.of(InitDb.class, Changes.class, Seed.class, Serve.class), GrainCommands.COMMANDS);
+    static final List<Class<?>> COMMANDS = commands(
+            List.of(InitDb.class, Changes.class, Seed.class, Serve.class),
+            GrainCommands.COMMANDS,
+            YardCommands.COMMANDS,
+            BoardCommands.COMMANDS,
+            ExportCommands.COMMANDS);
 
     private final Terminal terminal;
 
