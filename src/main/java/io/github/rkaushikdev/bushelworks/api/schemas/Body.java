@@ -8,7 +8,11 @@ import io.github.rkaushikdev.bushelworks.api.Refusal;
 import io.github.rkaushikdev.bushelworks.api.RequestRefused;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,6 +53,9 @@ public final class Body {
     /** What a date that cannot be read is refused with. */
     public static final String NOT_A_DATE = "Input should be a valid date in the format YYYY-MM-DD";
 
+    /** What a moment that cannot be read is refused with. */
+    public static final String NOT_A_MOMENT = "Input should be a valid datetime";
+
     static final String NOT_AN_OBJECT = "Input should be a valid dictionary or object to extract fields from";
 
     static final String NOT_TEXT = "Input should be a valid string";
@@ -62,6 +69,16 @@ public final class Body {
     /** What a quantity sent as a JSON number with a fraction is refused with. */
     public static final String NOT_AS_A_STRING = "Value error, send quantities as strings, not as JSON numbers,"
             + " so they do not lose precision on the way in";
+
+    /** An ISO date and time of day, with its offset from UTC or without one, which is read as UTC. */
+    private static final DateTimeFormatter MOMENT = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            .optionalStart()
+            .appendOffsetId()
+            .optionalEnd()
+            .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
+            .toFormatter(Locale.ROOT);
 
     private static final List<String> TRUE = List.of("true", "1", "yes", "on", "t", "y");
     private static final List<String> FALSE = List.of("false", "0", "no", "off", "f", "n");
@@ -170,6 +187,37 @@ public final class Body {
         return Optional.ofNullable(date(name, value));
     }
 
+    /**
+     * A required moment: an ISO date and time of day such as {@code 2024-11-27T06:00:00Z}, with a
+     * space allowed in place of the {@code T}. One written without an offset is read as UTC.
+     */
+    public OffsetDateTime moment(String name) {
+        JsonNode value = object.get(name);
+        if (value == null) {
+            refuse(name, FIELD_REQUIRED);
+            return null;
+        }
+        if (value.isTextual()) {
+            try {
+                return momentOf(value.textValue());
+            } catch (DateTimeParseException unreadable) {
+                refuse(name, NOT_A_MOMENT);
+                return null;
+            }
+        }
+        refuse(name, NOT_A_MOMENT);
+        return null;
+    }
+
+    /** A moment's text read, a space in place of the {@code T} taken as one. */
+    private static OffsetDateTime momentOf(String text) {
+        StringBuilder written = new StringBuilder(text);
+        if (written.length() > 10 && written.charAt(10) == ' ') {
+            written.setCharAt(10, 'T');
+        }
+        return OffsetDateTime.parse(written, MOMENT);
+    }
+
     /** A required exact quantity. */
     public BigDecimal quantity(String name) {
         JsonNode value = object.get(name);
@@ -190,6 +238,15 @@ public final class Body {
     public Optional<BigDecimal> optionalQuantity(String name) {
         JsonNode value = object.get(name);
         return value == null ? Optional.empty() : Optional.ofNullable(quantity(name, value));
+    }
+
+    /** An exact quantity that may be left out or sent as null, either of which means there is none. */
+    public Optional<BigDecimal> nullableQuantity(String name) {
+        JsonNode value = object.get(name);
+        if (value == null || value.isNull()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(quantity(name, value));
     }
 
     /** One of an enumeration's values, required. */

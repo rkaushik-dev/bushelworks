@@ -12,6 +12,8 @@ import io.github.rkaushikdev.bushelworks.api.RequestRefused;
 import io.github.rkaushikdev.bushelworks.domain.tickets.SplitRole;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,6 +86,35 @@ class BodyTest {
                 .containsExactly("q: Value error, None is not a number");
         assertThat(refused(object("q", true), in -> in.quantity("q")))
                 .containsExactly("q: Value error, True is not a number");
+    }
+
+    @Test
+    void aQuantityThatMayBeNullTakesNullAsNone() {
+        assertThat(read(object("q", null), in -> in.nullableQuantity("q"))).isEqualTo(Optional.empty());
+        assertThat(read(object(), in -> in.nullableQuantity("q"))).isEqualTo(Optional.empty());
+        assertThat(read(object("q", "0.25"), in -> in.nullableQuantity("q"))).isEqualTo(Optional.of(d("0.25")));
+        assertThat(refused(object("q", 0.25), in -> in.nullableQuantity("q")))
+                .containsExactly("q: " + Body.NOT_AS_A_STRING);
+    }
+
+    @Test
+    void aMomentKeepsItsOffsetAndReadsNoneAsUtc() {
+        OffsetDateTime six = OffsetDateTime.of(2024, 11, 27, 6, 0, 0, 0, ZoneOffset.UTC);
+        assertThat(read(object("at", "2024-11-27T06:00:00Z"), in -> in.moment("at")))
+                .isEqualTo(six);
+        assertThat(read(object("at", "2024-11-27 06:00:00"), in -> in.moment("at")))
+                .isEqualTo(six);
+        assertThat(read(object("at", "2024-11-27T00:00:00-06:00"), in -> in.moment("at")))
+                .isEqualTo(OffsetDateTime.of(2024, 11, 27, 0, 0, 0, 0, ZoneOffset.ofHours(-6)));
+        assertThat(read(object("at", "2024-11-27T06:00:00.250+00:00"), in -> in.moment("at")))
+                .isEqualTo(six.plusNanos(250_000_000));
+        assertThat(refused(object("at", "27/11/2024 06:00"), in -> in.moment("at")))
+                .containsExactly("at: " + Body.NOT_A_MOMENT);
+        assertThat(refused(object("at", "2024-11-27"), in -> in.moment("at")))
+                .containsExactly("at: " + Body.NOT_A_MOMENT);
+        assertThat(refused(object("at", 1732687200), in -> in.moment("at")))
+                .containsExactly("at: " + Body.NOT_A_MOMENT);
+        assertThat(refused(object(), in -> in.moment("at"))).containsExactly("at: " + Body.FIELD_REQUIRED);
     }
 
     @Test

@@ -11,6 +11,7 @@ import io.github.rkaushikdev.bushelworks.api.security.NotAuthorised;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -221,6 +222,9 @@ public class Errors {
         }
         if (type == LocalDate.class) {
             return Body.NOT_A_DATE;
+        }
+        if (type == OffsetDateTime.class) {
+            return Body.NOT_A_MOMENT;
         }
         return "Input should be valid";
     }
