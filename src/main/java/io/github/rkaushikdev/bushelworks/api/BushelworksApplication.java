@@ -12,16 +12,20 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import java.util.ArrayList;
 import java.util.List;
+import org.springdoc.core.properties.SpringDocConfigProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.error.ErrorMvcAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * The HTTP interface: the scale house terminal, the office screens and the grain accountant's
@@ -39,14 +43,17 @@ import org.springframework.context.annotation.Bean;
  *
  * <p>Spring Boot's own data source, JPA and Flyway set up are switched off: with H2 on the class path
  * and no data source of its own, Boot would otherwise build an embedded database and migrate that.
- * Nothing migrates when the service starts.
+ * Nothing migrates when the service starts. Boot's error page is switched off too: every failure is
+ * answered by {@link Errors} in the service's own shape, and the page would be one more route on a
+ * surface the clients have compiled in.
  */
 @SpringBootApplication(
         exclude = {
             DataSourceAutoConfiguration.class,
             DataSourceTransactionManagerAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class,
-            FlywayAutoConfiguration.class
+            FlywayAutoConfiguration.class,
+            ErrorMvcAutoConfiguration.class
         })
 public class BushelworksApplication {
 
@@ -119,5 +126,12 @@ public class BushelworksApplication {
     @Bean
     WireSchemas wireSchemas(ObjectMapper json) {
         return new WireSchemas(json);
+    }
+
+    @Bean
+    OneDocument oneDocument(
+            @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping routes,
+            SpringDocConfigProperties docs) {
+        return new OneDocument(routes, docs.getApiDocs().getPath());
     }
 }

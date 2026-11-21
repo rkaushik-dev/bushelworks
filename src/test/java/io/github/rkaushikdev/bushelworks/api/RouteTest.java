@@ -8,18 +8,17 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
-import org.springdoc.core.properties.SwaggerUiConfigProperties;
-import org.springdoc.core.properties.SwaggerUiOAuthProperties;
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
-import org.springdoc.webmvc.ui.SwaggerConfig;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.error.ErrorMvcAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 
 /**
  * A test of the service's routes: the web layer of the application, every route, filter and the
  * error advice in it, over the suite's real database, driven through MockMvc with no server and no
- * mocks. The API document is served too, which a web slice would otherwise leave out.
+ * mocks. The API document is served too, which a web slice would otherwise leave out, and Boot's
+ * error page is left out, as the application leaves it out.
  *
  * <p>Classes carrying this with the same properties share one application, started once. A class
  * that needs a house of its own sets it with {@code @TestPropertySource} (see {@link TestService});
@@ -30,14 +29,11 @@ import org.springframework.context.annotation.Import;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@WebMvcTest
+@WebMvcTest(excludeAutoConfiguration = ErrorMvcAutoConfiguration.class)
 @Import(TestService.class)
 @ImportAutoConfiguration({
     SpringDocConfiguration.class,
     SpringDocConfigProperties.class,
-    SpringDocWebMvcConfiguration.class,
-    SwaggerConfig.class,
-    SwaggerUiConfigProperties.class,
-    SwaggerUiOAuthProperties.class
+    SpringDocWebMvcConfiguration.class
 })
 public @interface RouteTest {}

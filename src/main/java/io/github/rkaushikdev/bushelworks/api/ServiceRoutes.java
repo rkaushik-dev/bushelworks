@@ -11,8 +11,6 @@ import jakarta.persistence.PersistenceException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The routes a load balancer and a deploy check call: liveness, readiness, and the pages the API
  * document is read through. None of them asks for a key and none is rate limited.
+ *
+ * <p>The pages are small: each loads its viewer from a public CDN and points it at {@code
+ * /openapi.json}, so the service itself serves no assets and answers on no route beyond these.
  */
 @RestController
 @Tag(name = "ops")
@@ -31,6 +32,54 @@ public class ServiceRoutes {
 
     /** What {@code /ready} reports for a migration history with nothing applied in it. */
     public static final String EMPTY = "empty";
+
+    private static final String SWAGGER_UI = "https://unpkg.com/swagger-ui-dist@5/";
+
+    private static final String DOCS =
+            """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <link type="text/css" rel="stylesheet" href="%1$sswagger-ui.css">
+            <title>bushelworks - Swagger UI</title>
+            </head>
+            <body>
+            <div id="swagger-ui">
+            </div>
+            <script src="%1$sswagger-ui-bundle.js"></script>
+            <script>
+            const ui = SwaggerUIBundle({
+                url: '/openapi.json',
+                "dom_id": "#swagger-ui",
+                "layout": "BaseLayout",
+                "deepLinking": true,
+                "showExtensions": true,
+                "showCommonExtensions": true,
+                oauth2RedirectUrl: window.location.origin + '/docs/oauth2-redirect',
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIBundle.SwaggerUIStandalonePreset
+                ],
+            })
+            </script>
+            </body>
+            </html>
+            """
+                    .formatted(SWAGGER_UI);
+
+    private static final String OAUTH_REDIRECT =
+            """
+            <!doctype html>
+            <html lang="en-US">
+            <head>
+            <title>bushelworks - Swagger UI: OAuth2 Redirect</title>
+            </head>
+            <body>
+            <script src="%soauth2-redirect.js"></script>
+            </body>
+            </html>
+            """
+                    .formatted(SWAGGER_UI);
 
     private static final String REDOC =
             """
@@ -84,6 +133,13 @@ public class ServiceRoutes {
         return body;
     }
 
+    /** The API document, rendered for trying routes out. */
+    @Hidden
+    @GetMapping("/docs")
+    public ResponseEntity<String> docs() {
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(DOCS);
+    }
+
     /** The API document, rendered for reading rather than for trying routes out. */
     @Hidden
     @GetMapping("/redoc")
@@ -91,13 +147,11 @@ public class ServiceRoutes {
         return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(REDOC);
     }
 
-    /** Where the interactive document's sign in comes back to. */
+    /** Where the interactive document's sign in comes back to, handing what came back to the page that opened it. */
     @Hidden
     @GetMapping("/docs/oauth2-redirect")
-    public ResponseEntity<Void> oauthRedirect() {
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, "/swagger-ui/oauth2-redirect.html")
-                .build();
+    public ResponseEntity<String> oauthRedirect() {
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(OAUTH_REDIRECT);
     }
 
     /**

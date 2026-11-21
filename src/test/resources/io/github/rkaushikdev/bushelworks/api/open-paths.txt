@@ -1,0 +1,9 @@
+# The paths that answer without a key, one to a line, because a health check that gets a 401
+# takes the box out of the load balancer.
+/health
+/ready
+/metrics
+/openapi.json
+/docs
+/docs/oauth2-redirect
+/redoc
