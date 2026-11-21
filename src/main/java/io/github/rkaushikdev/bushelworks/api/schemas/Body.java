@@ -15,8 +15,10 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -61,6 +63,8 @@ public final class Body {
     static final String NOT_TEXT = "Input should be a valid string";
 
     static final String NOT_A_LIST = "Input should be a valid list";
+
+    static final String NOT_A_DICTIONARY = "Input should be a valid dictionary";
 
     static final String NOT_A_FLAG = "Input should be a valid boolean";
 
@@ -313,6 +317,21 @@ public final class Body {
         return read == null ? fallback : read;
     }
 
+    /** A required whole number above {@code floor}, which it may not equal, and up to {@code max}. */
+    public Integer wholeAbove(String name, int floor, int max) {
+        JsonNode value = object.get(name);
+        if (value == null) {
+            refuse(name, FIELD_REQUIRED);
+            return null;
+        }
+        Integer read = whole(name, value, Integer.MIN_VALUE, max);
+        if (read != null && read <= floor) {
+            refuse(name, "Input should be greater than " + floor);
+            return null;
+        }
+        return read;
+    }
+
     /** A whole number that may be absent or null. */
     public Optional<Integer> optionalWhole(String name) {
         JsonNode value = object.get(name);
@@ -336,6 +355,53 @@ public final class Body {
             return null;
         }
         return list(name, value, item, min, max);
+    }
+
+    /** A list of strings that may be absent or null, either of which means there is none. */
+    public Optional<List<String>> optionalTexts(String name) {
+        JsonNode value = object.get(name);
+        if (value == null || value.isNull()) {
+            return Optional.empty();
+        }
+        if (!value.isArray()) {
+            refuse(name, NOT_A_LIST);
+            return Optional.empty();
+        }
+        List<String> texts = new ArrayList<>();
+        for (int index = 0; index < value.size(); index++) {
+            JsonNode element = value.get(index);
+            if (element.isTextual()) {
+                texts.add(element.textValue());
+            } else {
+                refusals.add(new Refusal(at(name, index), NOT_TEXT));
+            }
+        }
+        return Optional.of(texts);
+    }
+
+    /**
+     * An object of exact quantities under names the caller chooses, kept in the order sent; empty when
+     * absent. Each quantity is read as {@link #quantity(String) a quantity field} is, and refused under
+     * its own name.
+     */
+    public Map<String, BigDecimal> quantities(String name) {
+        JsonNode value = object.get(name);
+        Map<String, BigDecimal> read = new LinkedHashMap<>();
+        if (value == null) {
+            return read;
+        }
+        if (!value.isObject()) {
+            refuse(name, NOT_A_DICTIONARY);
+            return read;
+        }
+        Body entries = new Body(value, at(name), refusals);
+        value.fieldNames().forEachRemaining(key -> {
+            BigDecimal quantity = entries.quantity(key);
+            if (quantity != null) {
+                read.put(key, quantity);
+            }
+        });
+        return read;
     }
 
     private List<Object> at(Object... steps) {

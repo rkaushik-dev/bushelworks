@@ -151,6 +151,44 @@ class BodyTest {
     }
 
     @Test
+    void aWholeNumberAboveAFloorMayNotEqualIt() {
+        assertThat(read(object("n", 1), in -> in.wholeAbove("n", 0, 20))).isEqualTo(1);
+        assertThat(refused(object("n", 0), in -> in.wholeAbove("n", 0, 20)))
+                .containsExactly("n: Input should be greater than 0");
+        assertThat(refused(object("n", 21), in -> in.wholeAbove("n", 0, 20)))
+                .containsExactly("n: Input should be less than or equal to 20");
+        assertThat(refused(object("n", "one"), in -> in.wholeAbove("n", 0, 20)))
+                .containsExactly("n: Input should be a valid integer");
+        assertThat(refused(object(), in -> in.wholeAbove("n", 0, 20))).containsExactly("n: Field required");
+    }
+
+    @Test
+    void aListOfTextNamesEachItemThatIsNotText() {
+        assertThat(read(object("codes", list("CORN", "SOYB")), in -> in.optionalTexts("codes")))
+                .isEqualTo(Optional.of(List.of("CORN", "SOYB")));
+        assertThat(read(object("codes", null), in -> in.optionalTexts("codes"))).isEqualTo(Optional.empty());
+        assertThat(read(object(), in -> in.optionalTexts("codes"))).isEqualTo(Optional.empty());
+        assertThat(refused(object("codes", list("CORN", 7)), in -> in.optionalTexts("codes")))
+                .containsExactly("codes.1: Input should be a valid string");
+        assertThat(refused(object("codes", "CORN"), in -> in.optionalTexts("codes")))
+                .containsExactly("codes: Input should be a valid list");
+    }
+
+    @Test
+    void namedQuantitiesAreEachReadAndRefusedUnderTheirName() {
+        assertThat(read(object("prices", object("CORNZ24", "4.2225", "CORNH25", 4)), in -> in.quantities("prices")))
+                .isEqualTo(Map.of("CORNZ24", d("4.2225"), "CORNH25", d("4")));
+        assertThat(read(object(), in -> in.quantities("prices"))).isEqualTo(Map.of());
+        assertThat(refused(object("prices", object("CORNZ24", 4.2225, "CORNH25", "x")), in -> in.quantities("prices")))
+                .containsExactly(
+                        "prices.CORNZ24: " + Body.NOT_AS_A_STRING, "prices.CORNH25: Value error, 'x' is not a number");
+        assertThat(refused(object("prices", list()), in -> in.quantities("prices")))
+                .containsExactly("prices: Input should be a valid dictionary");
+        assertThat(refused(object("prices", null), in -> in.quantities("prices")))
+                .containsExactly("prices: Input should be a valid dictionary");
+    }
+
+    @Test
     void aListNamesEachItemByItsPlace() {
         Function<Body, List<SplitIn>> shape = in -> in.list("shares", SplitIn::read, 1, 2);
         assertThat(refused(object("shares", list(object("percent", "50"), "x")), shape))
