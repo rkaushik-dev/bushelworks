@@ -36,8 +36,8 @@ import picocli.CommandLine.Spec;
  *
  * <p>This class is the group and the commands that belong to no module of their own: building the
  * schema, the release notes and the demonstration house. The rest live in {@link GrainCommands},
- * {@link YardCommands}, {@link BoardCommands} and {@link ExportCommands}, and {@link Serve} runs the
- * HTTP service.
+ * {@link YardCommands}, {@link BoardCommands}, {@link BookCommands} and {@link ExportCommands}, and
+ * {@link Serve} runs the HTTP service.
  *
  * <ul>
  *   <li>Every command opens its own unit of work and commits at the end or not at all.
@@ -76,6 +76,7 @@ public final class Main implements Callable<Integer> {
             GrainCommands.COMMANDS,
             YardCommands.COMMANDS,
             BoardCommands.COMMANDS,
+            BookCommands.COMMANDS,
             ExportCommands.COMMANDS);
 
     private final Terminal terminal;
