@@ -63,8 +63,12 @@ tasks.named('jar', Jar) {
 
 tasks.named('test', Test) {
 	useJUnitPlatform()
-	// The README and source hygiene checks read files relative to the project root.
+	// The README and build file checks read files relative to the project root, and a change to
+	// either file has to run them again.
 	workingDir = projectDir
+	inputs.files('README.md', 'build.gradle')
+			.withPropertyName('projectFiles')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
 	maxParallelForks = 1
 	// Mockito's agent appends to the boot class path; without class-data sharing the JVM has
 	// nothing to warn about.
