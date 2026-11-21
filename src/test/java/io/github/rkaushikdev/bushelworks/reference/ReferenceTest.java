@@ -2,10 +2,12 @@ package io.github.rkaushikdev.bushelworks.reference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.rkaushikdev.bushelworks.Bushelworks;
 import io.github.rkaushikdev.bushelworks.cli.Main;
 import io.github.rkaushikdev.bushelworks.cli.Shell;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Commodities;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +16,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +36,18 @@ class ReferenceTest {
 
     /** The README at the root of the project, which the build runs the tests from. */
     static final Path README = Path.of("README.md");
+
+    /** Where the main sources are, from the root of the project. */
+    static final Path SOURCES = Path.of("src", "main", "java");
+
+    /** The root package, which every other package sits under. */
+    static final String ROOT = Bushelworks.class.getPackageName();
+
+    /** The API's list of the routes it answers on. */
+    static final String ROUTES = "/io/github/rkaushikdev/bushelworks/api/routes.txt";
+
+    /** A row of an endpoint table: the method, then the path in backticks. */
+    private static final Pattern ROUTE_ROW = Pattern.compile("(?m)^\\| (GET|POST|PUT|PATCH|DELETE) \\| `([^`]+)` \\|");
 
     /** A command in the group's own help: two spaces in, then its name. */
     private static final Pattern LISTED = Pattern.compile("^ {2}(\\S+)");
@@ -56,6 +71,34 @@ class ReferenceTest {
             }
         }
         return names;
+    }
+
+    /** The packages directly under the root one, each with a source file of its own somewhere in it. */
+    static Set<String> topLevelPackages() throws IOException {
+        Path root = SOURCES.resolve(ROOT.replace('.', '/'));
+        Set<String> names = new TreeSet<>();
+        try (Stream<Path> children = Files.list(root)) {
+            for (Path child : children.filter(Files::isDirectory).toList()) {
+                try (Stream<Path> inside = Files.walk(child)) {
+                    if (inside.anyMatch(file -> file.toString().endsWith(".java"))) {
+                        names.add(child.getFileName().toString());
+                    }
+                }
+            }
+        }
+        return names;
+    }
+
+    /** Every route the application answers on, as the API's route list writes it. */
+    static Set<String> routesWritten() throws IOException {
+        try (InputStream in = ReferenceTest.class.getResourceAsStream(ROUTES)) {
+            assertThat(in).as(ROUTES).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .lines()
+                    .map(String::strip)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
     }
 
     static List<String> rungRows(String table) {
@@ -142,6 +185,46 @@ class ReferenceTest {
             assertThat(readme).as(figure).contains(figure);
             assertThat(readme).as(line).contains(line);
         }
+    }
+
+    /**
+     * The README's layout names the packages the build has: the ones every reader looks for, and any
+     * other package directly under the root one.
+     */
+    @Test
+    void theReadmeNamesThePackagesThatExist() throws IOException {
+        String readme = readme();
+        Set<String> packages = topLevelPackages();
+        assertThat(packages)
+                .as("the packages were found")
+                .contains("domain", "schedules", "services", "persistence", "api", "cli", "reports", "devices");
+        for (String name : packages) {
+            assertThat(readme).contains(ROOT + "." + name);
+        }
+    }
+
+    /** The README's command table is the one generated from the command line. */
+    @Test
+    void theReadmeCarriesTheCommandTable() throws IOException {
+        assertThat(readme()).contains(Reference.commandReference());
+    }
+
+    /** The README's endpoint tables list every route the application answers on, and nothing else. */
+    @Test
+    void theReadmeListsEveryRoute() throws IOException {
+        String readme = readme();
+        Set<String> written = routesWritten();
+        assertThat(written).as("the routes were read").contains("GET /health", "POST /tickets");
+        for (String route : written) {
+            String[] parts = route.split(" ", 2);
+            assertThat(readme).as(route).contains("| " + parts[0] + " | `" + parts[1] + "` |");
+        }
+        Set<String> listed = new LinkedHashSet<>();
+        Matcher row = ROUTE_ROW.matcher(readme);
+        while (row.find()) {
+            listed.add(row.group(1) + " " + row.group(2));
+        }
+        assertThat(listed).isEqualTo(written);
     }
 
     @Test
