@@ -1,0 +1,26 @@
+                              BUSHELWORKS ELEVATOR
+                              SETTLEMENT STATEMENT
+================================================================================
+Statement         S-2024-0417
+Date              2024-10-20
+Producer          MERRICK
+Location          HOME
+Tickets           A-10441
+--------------------------------------------------------------------------------
+GRAIN PURCHASED
+  GRAIN       CORN 924.7813 bu at 1450.0000                         1,340,932.89
+
+DRYING
+  DRY         drying 3.2 points                                         (105.43)
+
+STORAGE
+  STOR-L-1    storage on L-1 through 2024-10-20                         (412.50)
+
+CHECKOFF WITHHELD
+  KSCORN      Kansas Corn Commission                                      (9.25)
+
+--------------------------------------------------------------------------------
+  GROSS                                                             1,340,932.89
+  LESS DEDUCTIONS                                                         527.18
+================================================================================
+  NET PAYABLE                                                       1,340,405.71
