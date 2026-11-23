@@ -8,10 +8,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.bushelworks.HouseFixtures;
+import io.github.rkaushikdev.bushelworks.domain.assessments.AssessmentBook;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
 import io.github.rkaushikdev.bushelworks.domain.grade.NumericalGrade;
 import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkMethod;
 import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkSchedule;
+import io.github.rkaushikdev.bushelworks.domain.rulebook.DockageReporting;
+import io.github.rkaushikdev.bushelworks.domain.rulebook.HousePolicy;
 import io.github.rkaushikdev.bushelworks.domain.rulebook.RuleBook;
 import io.github.rkaushikdev.bushelworks.domain.tickets.ScaleTicket;
 import java.math.BigDecimal;
@@ -99,6 +102,53 @@ class IntakeTest {
         assertThat(load.dockagePounds()).isEqualTo(d("1045"));
         assertThat(load.grossBushels()).isEqualTo(d("932.8571"));
         assertThat(load.cleanBushels()).isEqualTo(d("914.1964"));
+    }
+
+    RuleBook officialGrades() {
+        RuleBook book = new RuleBook(
+                HousePolicy.of("KS").withDockageReporting(DockageReporting.WHOLE_AND_HALF_PERCENT),
+                HouseFixtures.discountBook(),
+                AssessmentBook.standard());
+        book.fileShrink("CORN", rules.shrinkFor("CORN", cornTicket.scaleDate()), HouseFixtures.SEASON_OPENS);
+        return book;
+    }
+
+    @Test
+    void aHouseOnOfficialGradesDocksInWholeAndHalfPercents() {
+        GradedLoad measured =
+                receive(cornTicket.toBuilder().dockagePercent(d("2.4")).build(), rules);
+        GradedLoad reported =
+                receive(cornTicket.toBuilder().dockagePercent(d("2.4")).build(), officialGrades());
+        assertThat(measured.dockagePounds()).isEqualTo(d("1254"));
+        assertThat(reported.dockagePounds()).isEqualTo(d("1045"));
+        assertThat(reported.cleanBushels()).isEqualTo(d("914.1964"));
+    }
+
+    @Test
+    void dockageUnderAHalfPercentIsDroppedOnOfficialGrades() {
+        GradedLoad load =
+                receive(cornTicket.toBuilder().dockagePercent(d("0.4")).build(), officialGrades());
+        assertThat(load.dockagePounds()).isEqualByComparingTo(d("0"));
+        assertThat(load.cleanBushels()).isEqualTo(load.grossBushels());
+    }
+
+    @Test
+    void theDockageReportedIsFlooredToTheHalfPercent() {
+        DockageReporting official = DockageReporting.WHOLE_AND_HALF_PERCENT;
+        assertThat(official.reported(d("1.4"))).isEqualTo(d("1.0"));
+        assertThat(official.reported(d("1.5"))).isEqualTo(d("1.5"));
+        assertThat(official.reported(d("1.99"))).isEqualTo(d("1.5"));
+        assertThat(official.reported(d("2"))).isEqualTo(d("2.0"));
+        assertThat(DockageReporting.AS_MEASURED.reported(d("1.4"))).isEqualTo(d("1.4"));
+        assertThat(DockageReporting.of("whole_and_half_percent")).isSameAs(official);
+        assertThat(HousePolicy.of("KS").dockageReporting()).isSameAs(DockageReporting.AS_MEASURED);
+    }
+
+    @Test
+    void aTicketWhoseDockageAlreadyReportsIsLeftAlone() {
+        ScaleTicket even = cornTicket.toBuilder().dockagePercent(d("1.5")).build();
+        assertThat(Intake.reportedDockage(even, DockageReporting.WHOLE_AND_HALF_PERCENT))
+                .isSameAs(even);
     }
 
     @Test

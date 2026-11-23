@@ -9,6 +9,7 @@ import io.github.rkaushikdev.bushelworks.domain.grade.GradeResult;
 import io.github.rkaushikdev.bushelworks.domain.grade.Grading;
 import io.github.rkaushikdev.bushelworks.domain.moisture.DryingSchedule;
 import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkSchedule;
+import io.github.rkaushikdev.bushelworks.domain.rulebook.DockageReporting;
 import io.github.rkaushikdev.bushelworks.domain.rulebook.RuleBook;
 import io.github.rkaushikdev.bushelworks.domain.tickets.ScaleTicket;
 import java.math.BigDecimal;
@@ -28,7 +29,9 @@ import java.util.Optional;
  * </ol>
  *
  * <p>Some houses discount the wet bushels and some the dry, and the difference on a wet harvest is
- * real money, so the discounts leave here per bushel and settlement extends them.
+ * real money, so the discounts leave here per bushel and settlement extends them. Dockage comes off
+ * as the house's policy reports it, which for a house on official grades is in whole and half
+ * percents.
  */
 public final class Intake {
 
@@ -40,10 +43,11 @@ public final class Intake {
      * @throws IntakeError when the ticket is voided, or the house has no shrink schedule on file for
      *     its commodity, site and day
      */
-    public static GradedLoad receive(ScaleTicket ticket, RuleBook rules) {
-        if (ticket.voided()) {
-            throw new IntakeError(ticket.ticketNumber() + ": ticket is voided");
+    public static GradedLoad receive(ScaleTicket measured, RuleBook rules) {
+        if (measured.voided()) {
+            throw new IntakeError(measured.ticketNumber() + ": ticket is voided");
         }
+        ScaleTicket ticket = reportedDockage(measured, rules.policy().dockageReporting());
 
         Commodity commodity = Commodities.get(ticket.commodityCode());
         if (!rules.covers(ticket.commodityCode(), ticket.scaleDate(), ticket.locationCode())) {
@@ -75,6 +79,15 @@ public final class Intake {
                 grade,
                 rules.discounts().totalRate(ticket.commodityCode(), ticket.sample()),
                 rules.discounts().breakdown(ticket.commodityCode(), ticket.sample()));
+    }
+
+    /** The ticket with its dockage as the house reports it; the same ticket when nothing changes. */
+    static ScaleTicket reportedDockage(ScaleTicket ticket, DockageReporting reporting) {
+        BigDecimal reported = reporting.reported(ticket.dockagePercent());
+        if (reported.compareTo(ticket.dockagePercent()) == 0) {
+            return ticket;
+        }
+        return ticket.toBuilder().dockagePercent(reported).build();
     }
 
     /** What the dryer costs on this load, worked on the wet bushels. */
