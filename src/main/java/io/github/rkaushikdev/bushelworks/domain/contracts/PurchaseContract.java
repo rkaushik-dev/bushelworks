@@ -148,16 +148,57 @@ public record PurchaseContract(
 
     /** The fewest bushels that fill the contract inside its tolerance. */
     public BigDecimal minimumBushels() {
-        BigDecimal floor =
-                Decimals.divide(bushels.multiply(Decimals.HUNDRED.subtract(tolerancePercent)), Decimals.HUNDRED);
-        return Units.quantize(floor, BUSHEL_PLACES);
+        return percentOfFace(Decimals.HUNDRED.subtract(tolerancePercent));
     }
 
     /** The most bushels the contract takes inside its tolerance. */
     public BigDecimal maximumBushels() {
-        BigDecimal ceiling =
-                Decimals.divide(bushels.multiply(Decimals.HUNDRED.add(tolerancePercent)), Decimals.HUNDRED);
-        return Units.quantize(ceiling, BUSHEL_PLACES);
+        return percentOfFace(Decimals.HUNDRED.add(tolerancePercent));
+    }
+
+    private BigDecimal percentOfFace(BigDecimal percent) {
+        return Units.quantize(Decimals.divide(bushels.multiply(percent), Decimals.HUNDRED), BUSHEL_PLACES);
+    }
+
+    /**
+     * The bushels a producer failed to deliver, once the window has closed on fewer than the
+     * tolerance allows.
+     *
+     * <p>Short inside the tolerance is not short at all: the contract filled. Short outside it is
+     * short of the face amount, not of the tolerance floor, because the floor is a courtesy for the
+     * last load and not a smaller contract.
+     */
+    public BigDecimal shortfall(BigDecimal delivered) {
+        if (delivered.signum() < 0) {
+            throw new ContractError(number + ": delivered bushels cannot be negative");
+        }
+        if (delivered.compareTo(minimumBushels()) >= 0) {
+            return Units.quantize(BigDecimal.ZERO, BUSHEL_PLACES);
+        }
+        return Units.quantize(bushels.subtract(delivered), BUSHEL_PLACES);
+    }
+
+    /**
+     * What the producer owes for bushels he contracted and did not haul.
+     *
+     * <p>The house sold those bushels the day the contract was written, so it has to buy them back
+     * at today's bid. When the bid is above the contract price the producer pays the difference;
+     * when it is below, the house keeps the gain, because the producer is the one who broke the
+     * contract. The cancellation fee is on every short bushel either way.
+     *
+     * @param marketPrice the cash bid the house replaces the bushels at
+     * @param feePerBushel the buy back fee the contract states
+     */
+    public BigDecimal buyBack(BigDecimal delivered, BigDecimal marketPrice, BigDecimal feePerBushel) {
+        if (feePerBushel.signum() < 0) {
+            throw new ContractError(number + ": a buy back fee cannot be negative");
+        }
+        BigDecimal shortBushels = shortfall(delivered);
+        if (shortBushels.signum() == 0) {
+            return Money.ZERO_AMOUNT;
+        }
+        BigDecimal difference = Decimals.max(marketPrice.subtract(unitPrice()), BigDecimal.ZERO);
+        return Money.extend(shortBushels, difference.add(feePerBushel));
     }
 
     public boolean acceptsDeliveryOn(LocalDate day) {
@@ -224,12 +265,32 @@ public record PurchaseContract(
 
     /** The deferred price service fee, charged per bushel per month started. */
     public BigDecimal serviceCharge(BigDecimal onBushels, int days) {
+        return Money.extend(onBushels, serviceRateFor(days));
+    }
+
+    /**
+     * The deferred price service fee with the cap the agreement writes on it.
+     *
+     * <p>Most deferred agreements stop charging once the fee reaches so many cents a bushel, so a
+     * producer who forgets his grain until August does not pay more in fees than the grain earns.
+     *
+     * @param capPerBushel the most the fee comes to per bushel, however long the grain stays unpriced
+     */
+    public BigDecimal serviceCharge(BigDecimal onBushels, int days, BigDecimal capPerBushel) {
+        if (capPerBushel.signum() < 0) {
+            throw new ContractError(number + ": a service charge cap cannot be negative");
+        }
+        return Money.extend(onBushels, Decimals.min(serviceRateFor(days), capPerBushel));
+    }
+
+    /** The fee per bushel for so many days unpriced: the monthly rate for every month started. */
+    private BigDecimal serviceRateFor(int days) {
         if (serviceRatePerBushel.signum() == 0 || days <= 0) {
-            return Money.ZERO_AMOUNT;
+            return BigDecimal.ZERO;
         }
         BigDecimal months =
                 Decimals.divide(BigDecimal.valueOf(days), DAYS_A_MONTH).setScale(0, RoundingMode.CEILING);
-        return Money.extend(onBushels, serviceRatePerBushel.multiply(months));
+        return serviceRatePerBushel.multiply(months);
     }
 
     /** A contract assembled a field at a time. */

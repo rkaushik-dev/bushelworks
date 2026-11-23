@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.rkaushikdev.bushelworks.domain.pricing.FuturesMonth;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class ContractsTest {
 
@@ -146,13 +148,59 @@ class ContractsTest {
                 .isInstanceOf(ContractError.class);
     }
 
-    @Test
-    void serviceChargeRoundsUpToAWholeMonth() {
+    @ParameterizedTest
+    @CsvSource({"0, 0.00", "1, 40.00", "30, 40.00", "31, 80.00", "60, 80.00", "61, 120.00", "-3, 0.00"})
+    void serviceChargeRoundsUpToAWholeMonth(int days, String charge) {
         PurchaseContract contract =
                 deferred("D-2024-003").serviceRatePerBushel(d("0.0050")).build();
-        assertThat(contract.serviceCharge(d("8000"), 31)).isEqualTo(d("80.00"));
-        assertThat(contract.serviceCharge(d("8000"), 30)).isEqualTo(d("40.00"));
-        assertThat(contract.serviceCharge(d("8000"), 0)).isEqualTo(d("0.00"));
+        assertThat(contract.serviceCharge(d("8000"), days)).isEqualTo(d(charge));
+    }
+
+    @Test
+    void theServiceChargeStopsAtTheCapTheAgreementWrites() {
+        PurchaseContract contract =
+                deferred("D-2024-003").serviceRatePerBushel(d("0.0050")).build();
+        // four months started is two cents, which is under a three cent cap
+        assertThat(contract.serviceCharge(d("8000"), 100, d("0.0300"))).isEqualTo(d("160.00"));
+        // ten months started would be five cents
+        assertThat(contract.serviceCharge(d("8000"), 280, d("0.0300"))).isEqualTo(d("240.00"));
+        assertThat(contract.serviceCharge(d("8000"), 280)).isEqualTo(d("400.00"));
+        assertThat(contract.serviceCharge(d("8000"), 0, d("0.0300"))).isEqualTo(d("0.00"));
+        assertThatThrownBy(() -> contract.serviceCharge(d("8000"), 30, d("-0.01")))
+                .isInstanceOf(ContractError.class);
+    }
+
+    @Test
+    void shortInsideTheToleranceIsNotShort() {
+        PurchaseContract contract = forward().tolerancePercent(d("5")).build();
+        assertThat(contract.shortfall(d("19000"))).isEqualTo(d("0.0000"));
+        assertThat(contract.shortfall(d("20400"))).isEqualTo(d("0.0000"));
+        assertThat(contract.buyBack(d("19000"), d("5.1000"), d("0.0500"))).isEqualTo(d("0.00"));
+    }
+
+    @Test
+    void shortOutsideTheToleranceIsShortOfTheFaceAmount() {
+        PurchaseContract contract = forward().tolerancePercent(d("5")).build();
+        assertThat(contract.shortfall(d("18999.5"))).isEqualTo(d("1000.5000"));
+        assertThat(contract.shortfall(d("0"))).isEqualTo(d("20000.0000"));
+        assertThatThrownBy(() -> contract.shortfall(d("-1"))).isInstanceOf(ContractError.class);
+    }
+
+    @Test
+    void aShortProducerPaysTheRallyAndTheFee() {
+        PurchaseContract contract = forward().tolerancePercent(d("5")).build();
+        // 2,000 short, the bid 48 cents over the 4.62 contract, a nickel fee
+        assertThat(contract.buyBack(d("18000"), d("5.1000"), d("0.0500"))).isEqualTo(d("1060.00"));
+        // the market fell: only the fee
+        assertThat(contract.buyBack(d("18000"), d("4.1000"), d("0.0500"))).isEqualTo(d("100.00"));
+        assertThatThrownBy(() -> contract.buyBack(d("18000"), d("4.10"), d("-0.05")))
+                .isInstanceOf(ContractError.class);
+    }
+
+    @Test
+    void anUnpricedContractCannotBeBoughtBack() {
+        assertThatThrownBy(() -> hta().build().buyBack(d("0"), d("4.50"), d("0.05")))
+                .isInstanceOf(ContractError.class);
     }
 
     @Test
