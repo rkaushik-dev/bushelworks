@@ -208,7 +208,8 @@ public final class Positions {
                 openLotBushels(uow, commodityCode, asOf, true, site),
                 contractedBushels(uow, commodityCode, asOf, site),
                 Shipping.soldForward(uow, commodityCode, asOf, site),
-                inTransit);
+                inTransit,
+                BigDecimal.ZERO);
     }
 
     /** The whole board for one day, every commodity, across every site. */

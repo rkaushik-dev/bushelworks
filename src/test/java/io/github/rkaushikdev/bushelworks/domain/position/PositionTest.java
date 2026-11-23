@@ -4,6 +4,7 @@ import static io.github.rkaushikdev.bushelworks.TestDecimals.d;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.rkaushikdev.bushelworks.domain.grainbank.FeedAccount;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,47 @@ class PositionTest {
                 .deferredPrice(d("150000"))
                 .purchasedForward(d("250000"))
                 .soldForward(d("600000"));
+    }
+
+    @Test
+    void grainBankBushelsAreTheCattlemensNotTheHouses() {
+        PositionLine banked = line().grainBank(d("30000")).build();
+        assertThat(banked.owned()).isEqualTo(d("420000.0000"));
+        assertThat(banked.netLong()).isEqualTo(d("220000.0000"));
+        assertThat(banked.obligation()).isEqualTo(d("1180000.0000"));
+        assertThatThrownBy(() -> line().grainBank(d("-1")).build())
+                .isInstanceOf(PositionError.class)
+                .hasMessageContaining("grain_bank");
+    }
+
+    @Test
+    void twoSitesRollTheirGrainBanksUpTogether() {
+        PositionLine home = line().grainBank(d("30000")).build();
+        PositionLine luray = line().locationCode("LURAY").grainBank(d("5000")).build();
+        assertThat(home.combine(luray).grainBank()).isEqualByComparingTo(d("35000"));
+        assertThat(home.toBuilder().build()).isEqualTo(home);
+    }
+
+    @Test
+    void theFeedAccountsOnFileFillTheGrainBankAsTheyStoodThatDay() {
+        FeedAccount stroh = FeedAccount.open("STROH", "CORN", "HOME", LocalDate.of(2024, 10, 3))
+                .deposit("A-1", d("12000"), LocalDate.of(2024, 10, 3))
+                .deposit("A-2", d("3000"), LocalDate.of(2024, 11, 5));
+        FeedAccount elsewhere = FeedAccount.open("HAAS", "CORN", "LURAY", LocalDate.of(2024, 10, 3))
+                .deposit("L-1", d("8000"), LocalDate.of(2024, 10, 3));
+        FeedAccount converted = FeedAccount.open("VOTH", "CORN", "HOME", LocalDate.of(2024, 9, 20))
+                .deposit("A-0", d("6000"), LocalDate.of(2024, 9, 20))
+                .convertToStorage(LocalDate.of(2024, 10, 15));
+        FeedAccount milo = FeedAccount.open("STROH", "MILO", "HOME", LocalDate.of(2024, 10, 3))
+                .deposit("A-3", d("900"), LocalDate.of(2024, 10, 3));
+        List<FeedAccount> accounts = List.of(stroh, elsewhere, converted, milo);
+        assertThat(Positions.withGrainBank(line().build(), accounts).grainBank())
+                .isEqualTo(d("12000.0000"));
+        assertThat(Positions.withGrainBank(line().locationCode("*").build(), accounts)
+                        .grainBank())
+                .isEqualTo(d("20000.0000"));
+        PositionLine october = line().asOf(LocalDate.of(2024, 10, 10)).build();
+        assertThat(Positions.withGrainBank(october, accounts).grainBank()).isEqualTo(d("18000.0000"));
     }
 
     @Test

@@ -14,14 +14,15 @@ import java.util.Objects;
  * has to satisfy every night:
  *
  * <pre>
- *     owned    = on_hand - storage_obligation - deferred_price
+ *     owned    = on_hand - storage_obligation - grain_bank - deferred_price
  *     net_long = owned + deferred_price + purchased_forward - sold_forward + in_transit
  * </pre>
  *
  * <p>Storage bushels belong to the producer and carry no price risk for the house. Deferred price
  * bushels have been delivered and title has passed, but the price has not been agreed, so the house
  * is long them and must hedge them. Missing that puts a house short into a rally with no idea it is
- * there.
+ * there. Grain bank bushels are the cattlemen's, held to come back as feed, and they are as far
+ * outside the house's price risk as storage is; counting them as owned hedges somebody else's corn.
  *
  * @param asOf the day
  * @param commodityCode the commodity
@@ -32,6 +33,7 @@ import java.util.Objects;
  * @param purchasedForward bushels bought and not yet delivered
  * @param soldForward bushels sold and not yet shipped
  * @param inTransit bushels on the road
+ * @param grainBank bushels held in feed accounts, to go back out as ground feed
  */
 public record PositionLine(
         LocalDate asOf,
@@ -42,7 +44,8 @@ public record PositionLine(
         BigDecimal deferredPrice,
         BigDecimal purchasedForward,
         BigDecimal soldForward,
-        BigDecimal inTransit) {
+        BigDecimal inTransit,
+        BigDecimal grainBank) {
 
     public PositionLine {
         Objects.requireNonNull(asOf, "asOf");
@@ -55,6 +58,7 @@ public record PositionLine(
         components.put("purchased_forward", purchasedForward);
         components.put("sold_forward", soldForward);
         components.put("in_transit", inTransit);
+        components.put("grain_bank", grainBank);
         components.forEach((name, value) -> {
             if (value.signum() < 0) {
                 throw new PositionError(commodityCode + "/" + locationCode + ": " + name + " is negative");
@@ -76,12 +80,14 @@ public record PositionLine(
                 .deferredPrice(deferredPrice)
                 .purchasedForward(purchasedForward)
                 .soldForward(soldForward)
-                .inTransit(inTransit);
+                .inTransit(inTransit)
+                .grainBank(grainBank);
     }
 
-    /** Bushels in the bin that belong to the house. */
+    /** Bushels in the bin that belong to the house: not storage, not grain bank, not unpriced. */
     public BigDecimal owned() {
-        return Units.quantize(onHand.subtract(storageObligation).subtract(deferredPrice), Units.BUSHEL_PLACES);
+        return Units.quantize(
+                onHand.subtract(storageObligation).subtract(grainBank).subtract(deferredPrice), Units.BUSHEL_PLACES);
     }
 
     /**
@@ -103,9 +109,10 @@ public record PositionLine(
         return netLong().signum() < 0;
     }
 
-    /** Everything the house owes somebody in bushels. */
+    /** Everything the house owes somebody in bushels, the feed accounts included. */
     public BigDecimal obligation() {
-        return Units.quantize(storageObligation.add(deferredPrice).add(soldForward), Units.BUSHEL_PLACES);
+        return Units.quantize(
+                storageObligation.add(grainBank).add(deferredPrice).add(soldForward), Units.BUSHEL_PLACES);
     }
 
     /** Add two lines for the same commodity on the same day. Two sites roll up under {@code *}. */
@@ -126,7 +133,8 @@ public record PositionLine(
                 deferredPrice.add(other.deferredPrice),
                 purchasedForward.add(other.purchasedForward),
                 soldForward.add(other.soldForward),
-                inTransit.add(other.inTransit));
+                inTransit.add(other.inTransit),
+                grainBank.add(other.grainBank));
     }
 
     /** A position line assembled a field at a time; every quantity starts at zero. */
@@ -141,6 +149,7 @@ public record PositionLine(
         private BigDecimal purchasedForward = BigDecimal.ZERO;
         private BigDecimal soldForward = BigDecimal.ZERO;
         private BigDecimal inTransit = BigDecimal.ZERO;
+        private BigDecimal grainBank = BigDecimal.ZERO;
 
         private Builder() {}
 
@@ -189,6 +198,11 @@ public record PositionLine(
             return this;
         }
 
+        public Builder grainBank(BigDecimal value) {
+            this.grainBank = value;
+            return this;
+        }
+
         public PositionLine build() {
             return new PositionLine(
                     asOf,
@@ -199,7 +213,8 @@ public record PositionLine(
                     deferredPrice,
                     purchasedForward,
                     soldForward,
-                    inTransit);
+                    inTransit,
+                    grainBank);
         }
     }
 }

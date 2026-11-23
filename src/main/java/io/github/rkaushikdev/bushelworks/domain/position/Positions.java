@@ -2,6 +2,7 @@ package io.github.rkaushikdev.bushelworks.domain.position;
 
 import io.github.rkaushikdev.bushelworks.Decimals;
 import io.github.rkaushikdev.bushelworks.Units;
+import io.github.rkaushikdev.bushelworks.domain.grainbank.FeedAccount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -52,6 +53,27 @@ public final class Positions {
                     + " exceeds the " + tolerance + "% tolerance of " + allowed);
         }
         return variance;
+    }
+
+    /**
+     * The line with the grain bank bushels on file at its site put in, as they stand on its day.
+     *
+     * <p>Accounts in other commodities, at other sites, opened after the day, or converted to storage
+     * by then are left out: a converted account's bushels are storage, and the storage figure already
+     * has them. A rolled up line takes every site's accounts.
+     */
+    public static PositionLine withGrainBank(PositionLine line, List<FeedAccount> accounts) {
+        BigDecimal held = BigDecimal.ZERO;
+        for (FeedAccount account : accounts) {
+            boolean here =
+                    line.locationCode().equals("*") || account.locationCode().equals(line.locationCode());
+            if (here && account.commodityCode().equals(line.commodityCode()) && account.isFeedAccountOn(line.asOf())) {
+                held = held.add(account.balanceOn(line.asOf()));
+            }
+        }
+        return line.toBuilder()
+                .grainBank(Units.quantize(held, Units.BUSHEL_PLACES))
+                .build();
     }
 
     /** Carry yesterday's lines onto today before the day's activity is applied. */

@@ -51,8 +51,23 @@ public record FeedAccount(
     }
 
     public BigDecimal balance() {
+        return sumOf(movements);
+    }
+
+    /** The bushels in the account at the end of a day, every movement on or before it counted. */
+    public BigDecimal balanceOn(LocalDate day) {
+        return sumOf(movements.stream().filter(item -> !item.on().isAfter(day)).toList());
+    }
+
+    /** Whether the account held grain bank bushels on a day: opened by then and not yet converted. */
+    public boolean isFeedAccountOn(LocalDate day) {
+        return !openedOn.isAfter(day)
+                && convertedOn.filter(on -> !on.isAfter(day)).isEmpty();
+    }
+
+    private static BigDecimal sumOf(List<Movement> items) {
         BigDecimal sum = BigDecimal.ZERO;
-        for (Movement item : movements) {
+        for (Movement item : items) {
             sum = sum.add(item.bushels());
         }
         return Units.quantize(sum, Units.BUSHEL_PLACES);
