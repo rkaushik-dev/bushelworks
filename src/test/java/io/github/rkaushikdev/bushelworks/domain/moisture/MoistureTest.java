@@ -184,6 +184,35 @@ class MoistureTest {
     }
 
     @Test
+    void aBracketChartChargesEveryPointAtTheBracketsRate() {
+        DryingSchedule chart = DRYER.withMethod(DryingMethod.BRACKET);
+        // 4 points lands in the second bracket: every point at 4.5 cents
+        assertThat(chart.rateFor(d("4"))).isEqualTo(d("0.1800"));
+        assertThat(DRYER.rateFor(d("4"))).isEqualTo(d("0.1500"));
+        // 1.5 points is in the first bracket either way
+        assertThat(chart.rateFor(d("1.5"))).isEqualTo(DRYER.rateFor(d("1.5")));
+        assertThat(chart.rateFor(d("6"))).isEqualTo(d("0.3600"));
+        assertThat(chart.charge(d("1000"), d("4"))).isEqualTo(d("180.00"));
+    }
+
+    @Test
+    void aLoadOnABracketCeilingTakesThatBracket() {
+        DryingSchedule chart = DRYER.withMethod(DryingMethod.BRACKET);
+        assertThat(chart.bracketFor(d("2"))).isEqualTo(DryingTier.upTo(d("2"), d("0.0300")));
+        assertThat(chart.bracketFor(d("2.1")).ratePerPoint()).isEqualTo(d("0.0450"));
+        assertThat(chart.withFreePoints(d("1")).rateFor(d("3"))).isEqualTo(d("0.0600"));
+        assertThat(DryingMethod.of("bracket")).isSameAs(DryingMethod.BRACKET);
+    }
+
+    @Test
+    void aBracketChartWithNoOpenTopRefusesAWetterLoad() {
+        DryingSchedule capped = DryingSchedule.of("CORN", List.of(DryingTier.upTo(d("5"), d("0.0400"))))
+                .withMethod(DryingMethod.BRACKET);
+        assertThat(capped.rateFor(d("5"))).isEqualTo(d("0.2000"));
+        assertThatThrownBy(() -> capped.rateFor(d("5.5"))).isInstanceOf(MoistureError.class);
+    }
+
+    @Test
     void dryingChargeExtendsOverBushels() {
         assertThat(DRYER.charge(d("932.8571"), d("4"))).isEqualTo(d("139.93"));
     }

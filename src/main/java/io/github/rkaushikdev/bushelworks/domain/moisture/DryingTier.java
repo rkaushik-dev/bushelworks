@@ -5,10 +5,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Dollars per point per bushel over a band of points.
+ * Dollars per point per bushel over a band of points, or for every point of a load that lands in
+ * the band when the schedule reads its tiers as brackets.
  *
  * @param upToPoints the point the tier stops at, or nothing for the open ended last tier
- * @param ratePerPoint dollars per bushel for each point in the tier
+ * @param ratePerPoint dollars per bushel for each point the tier charges
  */
 public record DryingTier(Optional<BigDecimal> upToPoints, BigDecimal ratePerPoint) {
 
