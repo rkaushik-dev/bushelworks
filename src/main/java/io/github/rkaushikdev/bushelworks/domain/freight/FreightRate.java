@@ -6,13 +6,15 @@ import io.github.rkaushikdev.bushelworks.Units;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One carrier's quote on one lane, with its fuel surcharge.
  *
- * <p>Fuel surcharge is a percentage of the line haul and it moves weekly. It is a separate figure
- * rather than folded into the rate because the carrier's invoice shows it separately and the two
- * have to reconcile.
+ * <p>Fuel surcharge is a percentage of the line haul and it moves weekly with the price of diesel.
+ * It is a separate figure rather than folded into the rate because the carrier's invoice shows it
+ * separately and the two have to reconcile. A carrier that works its surcharge off a {@link FuelSchedule} files the table
+ * with the quote, and each week's percent is read off it at that week's diesel price.
  *
  * @param carrier who quoted
  * @param lane the lane quoted on
@@ -22,6 +24,7 @@ import java.util.Objects;
  * @param fuelSurchargePercent the week's fuel surcharge on the line haul
  * @param minimumCharge the least a haul costs
  * @param paidBy who pays
+ * @param fuelSchedule the table the surcharge is worked from, when the carrier files one
  */
 public record FreightRate(
         String carrier,
@@ -31,7 +34,8 @@ public record FreightRate(
         LocalDate effectiveFrom,
         BigDecimal fuelSurchargePercent,
         BigDecimal minimumCharge,
-        PaidBy paidBy) {
+        PaidBy paidBy,
+        Optional<FuelSchedule> fuelSchedule) {
 
     private static final BigDecimal LARGEST_SURCHARGE = new BigDecimal("60");
     private static final BigDecimal CWT_PLACES = new BigDecimal("0.01");
@@ -42,6 +46,7 @@ public record FreightRate(
         Objects.requireNonNull(basis, "basis");
         Objects.requireNonNull(effectiveFrom, "effectiveFrom");
         Objects.requireNonNull(paidBy, "paidBy");
+        Objects.requireNonNull(fuelSchedule, "fuelSchedule");
         if (rate.signum() < 0) {
             throw new FreightError(carrier + ": a rate cannot be negative");
         }
@@ -55,32 +60,63 @@ public record FreightRate(
 
     /** A quote with no surcharge and no minimum, the house paying. */
     public static FreightRate of(String carrier, Lane lane, RateBasis basis, BigDecimal rate, LocalDate from) {
-        return new FreightRate(carrier, lane, basis, rate, from, BigDecimal.ZERO, Money.ZERO_AMOUNT, PaidBy.HOUSE);
+        return new FreightRate(
+                carrier, lane, basis, rate, from, BigDecimal.ZERO, Money.ZERO_AMOUNT, PaidBy.HOUSE, Optional.empty());
     }
 
     public FreightRate withCarrier(String value) {
-        return new FreightRate(value, lane, basis, rate, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy);
+        return new FreightRate(
+                value, lane, basis, rate, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy, fuelSchedule);
     }
 
     public FreightRate withBasis(RateBasis value, BigDecimal quoted) {
         return new FreightRate(
-                carrier, lane, value, quoted, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy);
+                carrier, lane, value, quoted, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy, fuelSchedule);
     }
 
     public FreightRate withRate(BigDecimal value) {
-        return new FreightRate(carrier, lane, basis, value, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy);
+        return new FreightRate(
+                carrier, lane, basis, value, effectiveFrom, fuelSurchargePercent, minimumCharge, paidBy, fuelSchedule);
     }
 
     public FreightRate withFuelSurchargePercent(BigDecimal value) {
-        return new FreightRate(carrier, lane, basis, rate, effectiveFrom, value, minimumCharge, paidBy);
+        return new FreightRate(carrier, lane, basis, rate, effectiveFrom, value, minimumCharge, paidBy, fuelSchedule);
     }
 
     public FreightRate withMinimumCharge(BigDecimal value) {
-        return new FreightRate(carrier, lane, basis, rate, effectiveFrom, fuelSurchargePercent, value, paidBy);
+        return new FreightRate(
+                carrier, lane, basis, rate, effectiveFrom, fuelSurchargePercent, value, paidBy, fuelSchedule);
+    }
+
+    /** The quote with the table its surcharge is worked from. */
+    public FreightRate withFuelSchedule(FuelSchedule value) {
+        return new FreightRate(
+                carrier,
+                lane,
+                basis,
+                rate,
+                effectiveFrom,
+                fuelSurchargePercent,
+                minimumCharge,
+                paidBy,
+                Optional.of(value));
+    }
+
+    /**
+     * The quote as it stands in a week whose diesel averaged {@code dieselPrice}: the surcharge read
+     * off the filed table, held to the most a surcharge can be.
+     *
+     * @throws FreightError when the carrier filed no table to read
+     */
+    public FreightRate atDieselPrice(BigDecimal dieselPrice) {
+        FuelSchedule table = fuelSchedule.orElseThrow(
+                () -> new FreightError(carrier + ": no fuel table on file to read a surcharge off"));
+        return withFuelSurchargePercent(Decimals.min(table.percentAt(dieselPrice), LARGEST_SURCHARGE));
     }
 
     public FreightRate withPaidBy(PaidBy value) {
-        return new FreightRate(carrier, lane, basis, rate, effectiveFrom, fuelSurchargePercent, minimumCharge, value);
+        return new FreightRate(
+                carrier, lane, basis, rate, effectiveFrom, fuelSurchargePercent, minimumCharge, value, fuelSchedule);
     }
 
     /** The charge before fuel, on whatever basis this rate is quoted. */

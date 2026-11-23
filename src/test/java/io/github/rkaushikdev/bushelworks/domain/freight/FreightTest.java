@@ -24,6 +24,46 @@ class FreightTest {
         return new Haul("T-4417", aRate(), BUSHELS, POUNDS, LocalDate.of(2024, 11, 12));
     }
 
+    /** Nothing at or under a dollar twenty five, a percent for every nickel or part of one above. */
+    static final FuelSchedule NICKEL_TABLE = new FuelSchedule(d("1.25"), d("0.05"), d("1"));
+
+    @Test
+    void theSurchargeIsReadOffTheTableAtTheWeeksDiesel() {
+        assertThat(NICKEL_TABLE.percentAt(d("1.20"))).isEqualByComparingTo(d("0"));
+        assertThat(NICKEL_TABLE.percentAt(d("1.25"))).isEqualByComparingTo(d("0"));
+        assertThat(NICKEL_TABLE.percentAt(d("1.26"))).isEqualByComparingTo(d("1"));
+        assertThat(NICKEL_TABLE.percentAt(d("1.30"))).isEqualByComparingTo(d("1"));
+        assertThat(NICKEL_TABLE.percentAt(d("3.789"))).isEqualByComparingTo(d("51"));
+    }
+
+    @Test
+    void aWeeksRateCarriesTheSurchargeOffTheTable() {
+        FreightRate filed = aRate().withFuelSchedule(NICKEL_TABLE);
+        FreightRate week = filed.atDieselPrice(d("1.95"));
+        assertThat(week.fuelSurchargePercent()).isEqualByComparingTo(d("14"));
+        // 930 bushels at 18 cents is 167.40, and fourteen percent of it is 23.44
+        assertThat(week.fuel(BUSHELS, POUNDS)).isEqualTo(d("23.44"));
+        assertThat(week.fuelSchedule()).contains(NICKEL_TABLE);
+        assertThat(week.withCarrier("Pfaff").fuelSchedule()).contains(NICKEL_TABLE);
+    }
+
+    @Test
+    void aSurchargeOffTheTableStopsAtTheLargestAllowed() {
+        assertThat(aRate().withFuelSchedule(NICKEL_TABLE)
+                        .atDieselPrice(d("6.00"))
+                        .fuelSurchargePercent())
+                .isEqualByComparingTo(d("60"));
+    }
+
+    @Test
+    void aRateWithNoTableCannotBeReadOffOne() {
+        assertThatThrownBy(() -> aRate().atDieselPrice(d("3.50"))).isInstanceOf(FreightError.class);
+        assertThatThrownBy(() -> new FuelSchedule(d("1.25"), d("0"), d("1"))).isInstanceOf(FreightError.class);
+        assertThatThrownBy(() -> new FuelSchedule(d("-1"), d("0.05"), d("1"))).isInstanceOf(FreightError.class);
+        assertThatThrownBy(() -> new FuelSchedule(d("1.25"), d("0.05"), d("-1")))
+                .isInstanceOf(FreightError.class);
+    }
+
     @Test
     void aLaneNeedsADistance() {
         assertThatThrownBy(() -> new Lane("HOME", "SALINA", d("0"))).isInstanceOf(FreightError.class);
