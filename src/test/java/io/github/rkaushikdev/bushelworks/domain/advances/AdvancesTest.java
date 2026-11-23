@@ -119,7 +119,43 @@ class AdvancesTest {
     @Test
     void interestAccruesOnWhatIsLeftAfterARepayment() {
         Advance advance = aCropAdvance().repay("S-1", d("25000.00"), LocalDate.of(2024, 10, 1));
-        assertThat(advance.interestTo(SETTLED)).isEqualTo(d("221.23"));
+        // 19 days on 50,000 before the recovery and 19 on 25,000 after it
+        assertThat(advance.interestTo(SETTLED)).isEqualTo(d("331.85"));
+        assertThat(advance.interestTo(LocalDate.of(2024, 10, 1))).isEqualTo(d("221.23"));
+        assertThat(advance.balanceOn(LocalDate.of(2024, 9, 30))).isEqualTo(d("50000.00"));
+        assertThat(advance.balanceOn(LocalDate.of(2024, 10, 1))).isEqualTo(d("25000.00"));
+    }
+
+    @Test
+    void aRateChangeRunsFromItsOwnDay() {
+        Advance advance = aCropAdvance().withRateChange(LocalDate.of(2024, 10, 1), d("9.0"));
+        assertThat(advance.rateOn(LocalDate.of(2024, 9, 30))).isEqualTo(d("8.5"));
+        assertThat(advance.rateOn(LocalDate.of(2024, 10, 1))).isEqualTo(d("9.0"));
+        assertThat(advance.interestTo(SETTLED)).isEqualTo(d("455.48"));
+        assertThat(advance.interestTo(LocalDate.of(2024, 9, 25)))
+                .isEqualTo(aCropAdvance().interestTo(LocalDate.of(2024, 9, 25)));
+    }
+
+    @Test
+    void recoveriesAndRateChangesTakeTurns() {
+        Advance advance = aCropAdvance()
+                .withRateChange(LocalDate.of(2024, 10, 10), d("9.0"))
+                .repay("S-1", d("20000.00"), LocalDate.of(2024, 10, 1));
+        assertThat(advance.rateChanges()).hasSize(1);
+        assertThat(advance.interestTo(SETTLED)).isEqualTo(d("358.08"));
+        assertThat(advance.payoff(SETTLED)).isEqualTo(d("30358.08"));
+    }
+
+    @Test
+    void aRateChangeHasToBeAfterTheDrawAndOnADayOfItsOwn() {
+        assertThatThrownBy(() -> aCropAdvance().withRateChange(DRAWN, d("9.0"))).isInstanceOf(AdvanceError.class);
+        Advance changed = aCropAdvance().withRateChange(LocalDate.of(2024, 10, 1), d("9.0"));
+        assertThatThrownBy(() -> changed.withRateChange(LocalDate.of(2024, 10, 1), d("9.25")))
+                .isInstanceOf(AdvanceError.class);
+        assertThatThrownBy(() -> new RateChange(LocalDate.of(2024, 10, 1), d("-1")))
+                .isInstanceOf(AdvanceError.class);
+        assertThatThrownBy(() -> aSettlementAdvance().withRateChange(LocalDate.of(2024, 10, 1), d("9.0")))
+                .isInstanceOf(AdvanceError.class);
     }
 
     @Test
