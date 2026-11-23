@@ -71,6 +71,21 @@ public final class Liens {
         }
     }
 
+    /**
+     * Filings still standing on {@code day} that lapse within {@code days} of it, soonest first.
+     *
+     * <p>The office sends this to the banks in the spring. A lapse in the middle of harvest means a
+     * cheque written the week before named a lender and the one written the week after does not,
+     * and the producer will ask why.
+     */
+    public static List<Interest> lapsingWithin(List<Interest> interests, LocalDate day, int days) {
+        LocalDate horizon = day.plusDays(days);
+        return interests.stream()
+                .filter(one -> one.isLiveOn(day) && !one.lapsesOn().isAfter(horizon))
+                .sorted(Comparator.comparing(Interest::lapsesOn).thenComparing(Interest::reference))
+                .toList();
+    }
+
     /** Interests on file that ask for nothing, for the statement footer. */
     public static List<Interest> notices(List<Interest> interests, LocalDate day) {
         return interests.stream()

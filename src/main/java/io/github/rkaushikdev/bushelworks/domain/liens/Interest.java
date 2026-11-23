@@ -2,6 +2,9 @@ package io.github.rkaushikdev.bushelworks.domain.liens;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -12,6 +15,12 @@ import java.util.Optional;
  * the house is on the hook for the money if it pays the producer alone. An assignment is capped at
  * what it is written for. A joint payee is not capped at anything, because it is not an amount.
  *
+ * <p>A filing does not stand for ever. A financing statement lapses five years after it was filed
+ * unless the holder files a continuation, and a continuation only counts if it is filed in the six
+ * months before the lapse; each one that counts carries the filing another five years from the day
+ * it would have lapsed. A bank that forgot to continue has no claim on the cheque, and the house
+ * that keeps putting its name on one is holding up a producer's money for nothing.
+ *
  * @param reference the filing's reference
  * @param partyCode the producer
  * @param holder who holds the interest
@@ -20,6 +29,7 @@ import java.util.Optional;
  * @param commodityCode the commodity it covers, or nothing for a blanket interest
  * @param amountLimit what an assignment is written for
  * @param releasedOn when it was released, if it has been
+ * @param continuedOn the continuation statements filed, oldest first
  */
 public record Interest(
         String reference,
@@ -29,7 +39,14 @@ public record Interest(
         LocalDate filedOn,
         Optional<String> commodityCode,
         Optional<BigDecimal> amountLimit,
-        Optional<LocalDate> releasedOn) {
+        Optional<LocalDate> releasedOn,
+        List<LocalDate> continuedOn) {
+
+    /** How long a filing, or a continuation of it, is effective for. */
+    public static final Period EFFECTIVE_FOR = Period.ofYears(5);
+
+    /** How long before the lapse a continuation may be filed and still count. */
+    public static final Period CONTINUATION_WINDOW = Period.ofMonths(6);
 
     public Interest {
         Objects.requireNonNull(reference, "reference");
@@ -40,6 +57,7 @@ public record Interest(
         Objects.requireNonNull(commodityCode, "commodityCode");
         Objects.requireNonNull(amountLimit, "amountLimit");
         Objects.requireNonNull(releasedOn, "releasedOn");
+        continuedOn = continuedOn.stream().sorted().toList();
         if (reference.isEmpty()) {
             throw new LienError("an interest needs a reference");
         }
@@ -58,6 +76,14 @@ public record Interest(
         if (releasedOn.isPresent() && releasedOn.get().isBefore(filedOn)) {
             throw new LienError(reference + ": released before it was filed");
         }
+        LocalDate lapse = filedOn.plus(EFFECTIVE_FOR);
+        for (LocalDate continuation : continuedOn) {
+            if (continuation.isBefore(lapse.minus(CONTINUATION_WINDOW)) || !continuation.isBefore(lapse)) {
+                throw new LienError(reference + ": a continuation on " + continuation
+                        + " is outside the six months before the " + lapse + " lapse");
+            }
+            lapse = lapse.plus(EFFECTIVE_FOR);
+        }
     }
 
     public static Builder builder() {
@@ -73,15 +99,31 @@ public record Interest(
                 .filedOn(filedOn)
                 .commodityCode(commodityCode.orElse(null))
                 .amountLimit(amountLimit.orElse(null))
-                .releasedOn(releasedOn.orElse(null));
+                .releasedOn(releasedOn.orElse(null))
+                .continuedOn(continuedOn);
     }
 
-    /** Whether the interest bites on a day: from its filing until the day it is released. */
+    /** The day the filing stops being effective, every timely continuation counted. */
+    public LocalDate lapsesOn() {
+        return filedOn.plus(EFFECTIVE_FOR.multipliedBy(continuedOn.size() + 1));
+    }
+
+    /** The first day a continuation of the filing as it stands may be filed. */
+    public LocalDate continuableFrom() {
+        return lapsesOn().minus(CONTINUATION_WINDOW);
+    }
+
+    /** The interest with one more continuation on file, refused unless it is timely. */
+    public Interest continueOn(LocalDate day) {
+        List<LocalDate> more = new ArrayList<>(continuedOn);
+        more.add(day);
+        return toBuilder().continuedOn(more).build();
+    }
+
+    /** Whether the interest bites on a day: from its filing until it is released or it lapses. */
     public boolean isLiveOn(LocalDate day) {
-        if (day.isBefore(filedOn)) {
-            return false;
-        }
-        return releasedOn.isEmpty() || day.isBefore(releasedOn.get());
+        boolean released = releasedOn.filter(on -> !day.isBefore(on)).isPresent();
+        return !day.isBefore(filedOn) && day.isBefore(lapsesOn()) && !released;
     }
 
     /** A blanket interest covers everything; a specific one does not. */
@@ -104,6 +146,7 @@ public record Interest(
         private String commodityCode;
         private BigDecimal amountLimit;
         private LocalDate releasedOn;
+        private List<LocalDate> continuedOn = List.of();
 
         private Builder() {}
 
@@ -150,6 +193,12 @@ public record Interest(
             return this;
         }
 
+        /** The continuation statements filed, in any order. */
+        public Builder continuedOn(List<LocalDate> value) {
+            this.continuedOn = List.copyOf(value);
+            return this;
+        }
+
         public Interest build() {
             return new Interest(
                     reference,
@@ -159,7 +208,8 @@ public record Interest(
                     filedOn,
                     Optional.ofNullable(commodityCode),
                     Optional.ofNullable(amountLimit),
-                    Optional.ofNullable(releasedOn));
+                    Optional.ofNullable(releasedOn),
+                    continuedOn);
         }
     }
 }

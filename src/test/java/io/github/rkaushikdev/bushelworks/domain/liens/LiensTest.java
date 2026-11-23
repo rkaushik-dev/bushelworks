@@ -54,6 +54,64 @@ class LiensTest {
     }
 
     @Test
+    void aFilingLapsesFiveYearsOn() {
+        Interest filing = joint().build();
+        assertThat(filing.lapsesOn()).isEqualTo(LocalDate.of(2029, 3, 1));
+        assertThat(filing.continuableFrom()).isEqualTo(LocalDate.of(2028, 9, 1));
+        assertThat(filing.isLiveOn(LocalDate.of(2029, 2, 28))).isTrue();
+        assertThat(filing.isLiveOn(LocalDate.of(2029, 3, 1))).isFalse();
+    }
+
+    @Test
+    void aTimelyContinuationCarriesTheFilingFromTheLapse() {
+        Interest continued = joint().build().continueOn(LocalDate.of(2028, 12, 15));
+        assertThat(continued.continuedOn()).containsExactly(LocalDate.of(2028, 12, 15));
+        assertThat(continued.lapsesOn()).isEqualTo(LocalDate.of(2034, 3, 1));
+        assertThat(continued.isLiveOn(LocalDate.of(2031, 10, 20))).isTrue();
+        Interest twice = continued.continueOn(LocalDate.of(2033, 9, 1));
+        assertThat(twice.lapsesOn()).isEqualTo(LocalDate.of(2039, 3, 1));
+    }
+
+    @Test
+    void aContinuationOutsideTheWindowIsRefused() {
+        Interest filing = joint().build();
+        assertThatThrownBy(() -> filing.continueOn(LocalDate.of(2028, 8, 31)))
+                .isInstanceOf(LienError.class)
+                .hasMessageContaining("2029-03-01");
+        assertThatThrownBy(() -> filing.continueOn(LocalDate.of(2029, 3, 1))).isInstanceOf(LienError.class);
+        assertThat(filing.continueOn(LocalDate.of(2028, 9, 1)).lapsesOn()).isEqualTo(LocalDate.of(2034, 3, 1));
+    }
+
+    @Test
+    void continuationsAreCheckedInTheOrderTheyWereFiled() {
+        Interest both = joint().continuedOn(List.of(LocalDate.of(2033, 10, 1), LocalDate.of(2029, 1, 10)))
+                .build();
+        assertThat(both.continuedOn()).containsExactly(LocalDate.of(2029, 1, 10), LocalDate.of(2033, 10, 1));
+        assertThat(both.lapsesOn()).isEqualTo(LocalDate.of(2039, 3, 1));
+    }
+
+    @Test
+    void aLapsedAssignmentTakesNothingOffTheCheque() {
+        Interest old = assignment().filedOn(LocalDate.of(2019, 3, 1)).build();
+        List<Payment> payments = split("10000.00", old);
+        assertThat(payments).extracting(Payment::payee).containsExactly("MERRICK");
+        assertThat(payments.get(0).dollars()).isEqualByComparingTo(d("10000.00"));
+    }
+
+    @Test
+    void theOfficeIsToldWhichFilingsLapseSoon() {
+        Interest soon = joint().reference("UCC-2019-0400")
+                .filedOn(LocalDate.of(2019, 12, 1))
+                .build();
+        Interest sooner = notice().filedOn(LocalDate.of(2019, 11, 1)).build();
+        Interest gone = assignment().filedOn(LocalDate.of(2019, 6, 1)).build();
+        Interest later = joint().build();
+        assertThat(Liens.lapsingWithin(List.of(soon, later, gone, sooner), SETTLED, 60))
+                .extracting(Interest::reference)
+                .containsExactly("NOT-2024-0009", "UCC-2019-0400");
+    }
+
+    @Test
     void anAssignmentNeedsAnAmount() {
         assertThatThrownBy(() -> assignment().amountLimit(null).build()).isInstanceOf(LienError.class);
     }
@@ -75,15 +133,18 @@ class LiensTest {
     }
 
     @Test
-    void anInterestIsLiveFromItsFiling() {
+    void anInterestIsLiveFromItsFilingUntilItLapses() {
         assertThat(joint().build().isLiveOn(LocalDate.of(2024, 2, 1))).isFalse();
+        assertThat(joint().build().isLiveOn(FILED)).isTrue();
         assertThat(joint().build().isLiveOn(SETTLED)).isTrue();
+        assertThat(joint().build().isLiveOn(FILED.plus(Interest.EFFECTIVE_FOR))).isFalse();
     }
 
     @Test
-    void aReleasedInterestStopsBiting() {
+    void aReleasedInterestStopsBitingOnTheDayOfTheRelease() {
         Interest released = joint().releasedOn(LocalDate.of(2024, 9, 1)).build();
-        assertThat(released.isLiveOn(LocalDate.of(2024, 8, 1))).isTrue();
+        assertThat(released.isLiveOn(LocalDate.of(2024, 8, 31))).isTrue();
+        assertThat(released.isLiveOn(LocalDate.of(2024, 9, 1))).isFalse();
         assertThat(released.isLiveOn(SETTLED)).isFalse();
     }
 
