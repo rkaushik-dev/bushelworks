@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +14,60 @@ class CommodityTest {
     @Test
     void masterHoldsTheFiveCommoditiesTheHouseBuys() {
         assertThat(Commodities.codes()).containsExactly("CORN", "HRW", "MILO", "SOYB", "SUNF");
+    }
+
+    @Test
+    void theMasterSheetReadsAsTheMaster() {
+        List<Commodity> rows = Commodities.parse(Commodities.MASTER_SHEET);
+        assertThat(rows).extracting(Commodity::code).containsExactly("CORN", "SOYB", "HRW", "MILO", "SUNF");
+        for (Commodity row : rows) {
+            assertThat(Commodities.get(row.code())).as(row.code()).isEqualTo(row);
+        }
+        assertThat(Commodities.HRW_WHEAT.requiredFactors())
+                .containsExactlyInAnyOrder(
+                        Factor.TEST_WEIGHT,
+                        Factor.MOISTURE,
+                        Factor.DOCKAGE,
+                        Factor.DAMAGE_TOTAL,
+                        Factor.SHRUNKEN_BROKEN,
+                        Factor.TOTAL_DEFECTS);
+        assertThat(Commodities.GRAIN_SORGHUM.optionalFactors()).doesNotContain(Factor.OIL, Factor.DAMAGE_HEAT);
+    }
+
+    @Test
+    void aHouseAddsACommodityByAddingARow() {
+        List<Commodity> rows = Commodities.parse(
+                """
+                # field peas for the pulse buyer
+                code  | name       | lb/bu | base moisture | priced per | required                  | optional
+                PEAS  | Field Peas | 60    | 14.0          | CWT        | moisture foreign_material | -
+                """);
+        Commodity peas = rows.get(0);
+        assertThat(peas.name()).isEqualTo("Field Peas");
+        assertThat(peas.standardTestWeight()).isEqualByComparingTo(d("60"));
+        assertThat(peas.priceUnit()).isSameAs(PriceUnit.HUNDREDWEIGHT);
+        assertThat(peas.requiredFactors()).containsExactlyInAnyOrder(Factor.MOISTURE, Factor.FOREIGN_MATERIAL);
+        assertThat(peas.accepts(Factor.GLASS)).isTrue();
+        assertThat(Commodities.codes()).doesNotContain("PEAS");
+    }
+
+    @Test
+    void aMasterRowThatCannotBeReadIsRefused() {
+        assertThatThrownBy(() -> Commodities.parse("PEAS | Field Peas | 60 | 14.0 | CWT | moisture"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("7 columns");
+        assertThatThrownBy(
+                        () -> Commodities.parse(
+                                """
+                        PEAS | Field Peas | 60 | 14.0 | CWT | moisture | -
+                        PEAS | Field Peas | 60 | 14.0 | CWT | moisture | -
+                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("twice");
+        assertThatThrownBy(() -> Commodities.parse("PEAS | Field Peas | 60 | 14.0 | BAG | moisture | -"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Commodities.parse("PEAS | Field Peas | 60 | 14.0 | CWT | moisture | colour"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
