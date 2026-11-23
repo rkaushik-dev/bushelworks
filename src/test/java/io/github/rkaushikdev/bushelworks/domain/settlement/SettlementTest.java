@@ -18,6 +18,10 @@ class SettlementTest {
 
     static final LocalDate SETTLED = LocalDate.of(2024, 10, 20);
 
+    static final List<SplitShare> LEASE = List.of(
+            new SplitShare("BROCKMAN", d("25"), SplitRole.LANDLORD),
+            new SplitShare("MERRICK", d("75"), SplitRole.TENANT));
+
     static SettlementBuilder builder() {
         return new SettlementBuilder("S-2024-0417", SETTLED, "MERRICK", "HOME");
     }
@@ -131,12 +135,57 @@ class SettlementTest {
     @Test
     void splitAcrossACropShareLease() {
         Settlement statement = fullStatement();
-        List<SplitShare> shares = List.of(
-                new SplitShare("BROCKMAN", d("25"), SplitRole.LANDLORD),
-                new SplitShare("MERRICK", d("75"), SplitRole.TENANT));
-        Map<String, BigDecimal> parts = Settlements.split(statement, shares);
+        Map<String, BigDecimal> parts = Settlements.split(statement, LEASE, LeaseTerms.SHARED);
         assertThat(sum(List.copyOf(parts.values()))).isEqualByComparingTo(statement.net());
         assertThat(parts.get("BROCKMAN")).isEqualTo(d("712.00"));
+        assertThat(parts.get("MERRICK")).isEqualTo(d("2136.01"));
+    }
+
+    @Test
+    void theTenantsAdvanceComesOffTheTenantsCheque() {
+        Settlement statement = fullStatement();
+        Map<String, BigDecimal> parts = Settlements.split(statement, LEASE, LeaseTerms.CROP_SHARE);
+        assertThat(sum(List.copyOf(parts.values()))).isEqualByComparingTo(statement.net());
+        // a quarter of everything but the advance, which is the tenant's alone
+        assertThat(parts.get("BROCKMAN")).isEqualTo(d("962.00"));
+        assertThat(parts.get("MERRICK")).isEqualTo(d("1886.01"));
+        assertThat(Settlements.split(statement, LEASE).get("BROCKMAN")).isEqualTo(d("712.00"));
+    }
+
+    @Test
+    void aLeaseCanPutStorageOnTheLandlord() {
+        LeaseTerms terms = LeaseTerms.SHARED.bearing(LineKind.STORAGE, SplitRole.LANDLORD);
+        assertThat(terms.bearerOf(LineKind.STORAGE)).contains(SplitRole.LANDLORD);
+        assertThat(terms.bearerOf(LineKind.DRYING)).isEmpty();
+        Map<String, BigDecimal> parts = Settlements.split(fullStatement(), LEASE, terms);
+        Map<String, BigDecimal> shared = Settlements.split(fullStatement(), LEASE);
+        // the landlord takes the whole 42.00 of storage instead of 10.50 of it
+        assertThat(shared.get("BROCKMAN").subtract(parts.get("BROCKMAN"))).isEqualByComparingTo(d("31.50"));
+    }
+
+    @Test
+    void twoLandlordsBearALandlordsLineBetweenThem() {
+        List<SplitShare> shares = List.of(
+                new SplitShare("BROCKMAN", d("20"), SplitRole.LANDLORD),
+                new SplitShare("HOLLIS", d("20"), SplitRole.LANDLORD),
+                new SplitShare("MERRICK", d("60"), SplitRole.TENANT));
+        SettlementBuilder b = builder();
+        b.addGross("GRAIN", "Corn", d("1000.0000"), d("4.0000"));
+        b.addCharge(LineKind.STORAGE, "STOR", "Storage", d("100.01"));
+        Map<String, BigDecimal> parts =
+                Settlements.split(b.build(), shares, LeaseTerms.SHARED.bearing(LineKind.STORAGE, SplitRole.LANDLORD));
+        assertThat(parts).containsEntry("BROCKMAN", d("749.99")).containsEntry("HOLLIS", d("750.00"));
+        assertThat(parts).containsEntry("MERRICK", d("2400.00"));
+    }
+
+    @Test
+    void aLeaseThatNamesARoleNobodyHoldsIsRefused() {
+        List<SplitShare> owners = List.of(new SplitShare("A", d("50")), new SplitShare("B", d("50")));
+        assertThatThrownBy(() -> Settlements.split(fullStatement(), owners, LeaseTerms.CROP_SHARE))
+                .isInstanceOf(SettlementError.class)
+                .hasMessageContaining("ADV on the tenant");
+        assertThatThrownBy(() -> LeaseTerms.SHARED.bearing(LineKind.GROSS, SplitRole.TENANT))
+                .isInstanceOf(SettlementError.class);
     }
 
     @Test
