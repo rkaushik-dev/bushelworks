@@ -99,13 +99,48 @@ class DryerTest {
     @Test
     void theFuelRateComparesWithTheRuleOfThumb() {
         assertThat(aRun().build().gallonsPerPointBushel()).contains(d("0.0200"));
-        assertThat(Run.GALLONS_PER_POINT_PER_BUSHEL).isEqualByComparingTo(d("0.02"));
+        // 20,000 bushels at 56 pounds, 3.2 points over the 85 percent left at base
+        assertThat(aRun().build().waterRemovedPounds()).isEqualTo(d("42165"));
+        assertThat(aRun().build().expectedGallons(Run.STANDARD_BTU_PER_POUND_OF_WATER))
+                .isEqualTo(d("1281"));
         assertThat(aRun().build().isThirsty()).isFalse();
     }
 
     @Test
     void aThirstyRunIsFlagged() {
         assertThat(aRun().propaneGallons(d("2000")).build().isThirsty()).isTrue();
+        assertThat(aRun().propaneGallons(d("1601")).build().isThirsty()).isFalse();
+        assertThat(aRun().propaneGallons(d("1602")).build().isThirsty()).isTrue();
+    }
+
+    @Test
+    void aSoybeanRunDoesMoreWorkAPointThanACornRun() {
+        Run beans = aRun().commodityCode("SOYB").propaneGallons(d("1650")).build();
+        Run corn = aRun().propaneGallons(d("1650")).build();
+        assertThat(beans.waterRemovedPounds()).isEqualTo(d("44138"));
+        assertThat(beans.isThirsty()).isFalse();
+        assertThat(corn.isThirsty()).isTrue();
+    }
+
+    @Test
+    void aRunIsJudgedAgainstTheDryerItWentThrough() {
+        Run run = aRun().build();
+        assertThat(run.btuPerPoundOfWater()).contains(d("2778"));
+        assertThat(run.isThirsty(d("2000"))).isTrue();
+        assertThat(run.isThirsty(d("2780"))).isFalse();
+        assertThatThrownBy(() -> run.expectedGallons(d("0"))).isInstanceOf(DryerError.class);
+        assertThat(idle("D-0120").btuPerPoundOfWater()).isEmpty();
+        assertThat(idle("D-0120").isThirsty(d("2000"))).isFalse();
+    }
+
+    @Test
+    void aSeasonSaysWhatAPoundOfWaterCostItInHeat() {
+        Season season = autumn(List.of(
+                aRun().build(), aRun().runId("D-0115").propaneGallons(d("1500")).build()));
+        assertThat(season.waterRemovedPounds()).isEqualTo(d("84330"));
+        assertThat(season.btuPerPoundOfWater()).contains(d("3016"));
+        assertThat(season.thirstyRuns(d("2000"))).extracting(Run::runId).containsExactly("D-0114", "D-0115");
+        assertThat(autumn(List.of(idle("D-0120"))).btuPerPoundOfWater()).isEmpty();
     }
 
     @Test

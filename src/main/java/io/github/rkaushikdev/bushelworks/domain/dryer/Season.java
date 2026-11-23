@@ -95,7 +95,30 @@ public record Season(
     }
 
     public List<Run> thirstyRuns() {
-        return runs.stream().filter(Run::isThirsty).toList();
+        return thirstyRuns(Run.STANDARD_BTU_PER_POUND_OF_WATER);
+    }
+
+    /** The runs that burned more than a quarter over what a dryer of this efficiency would. */
+    public List<Run> thirstyRuns(BigDecimal btuPerPoundOfWater) {
+        return runs.stream().filter(run -> run.isThirsty(btuPerPoundOfWater)).toList();
+    }
+
+    /** Pounds of water driven off over the season. */
+    public BigDecimal waterRemovedPounds() {
+        return sum(Run::waterRemovedPounds);
+    }
+
+    /**
+     * What the season spent driving off a pound of water, the figure a dryer salesman quotes, or
+     * nothing when nothing was dried.
+     */
+    public Optional<BigDecimal> btuPerPoundOfWater() {
+        BigDecimal water = waterRemovedPounds();
+        if (water.signum() <= 0) {
+            return Optional.empty();
+        }
+        BigDecimal heat = sum(Run::propaneGallons).multiply(Run.BTU_PER_GALLON);
+        return Optional.of(Units.quantize(Decimals.divide(heat, water), BigDecimal.ONE));
     }
 
     /** What the house would have to charge to come out level, or nothing when nothing was dried. */
