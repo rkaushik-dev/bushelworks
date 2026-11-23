@@ -13,6 +13,7 @@ import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkMethod;
 import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkSchedule;
 import io.github.rkaushikdev.bushelworks.domain.rulebook.RuleBook;
 import io.github.rkaushikdev.bushelworks.schedules.Version;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,18 @@ class HousesTest {
         DiscountBook book = discountBook();
         assertThat(book.factors("CORN")).containsExactly(Factor.BCFM, Factor.DAMAGE_TOTAL, Factor.TEST_WEIGHT);
         assertThat(book.factors("HRW")).containsExactly(Factor.DOCKAGE, Factor.TEST_WEIGHT);
+    }
+
+    @Test
+    void theBoardReadsAsSevenSchedulesOfEightBands() {
+        DiscountBook book = discountBook();
+        assertThat(book.schedules()).hasSize(7);
+        assertThat(book.schedules().stream().mapToInt(one -> one.bands().size()).sum())
+                .isEqualTo(8);
+        DiscountSchedule light = book.forFactor("CORN", Factor.TEST_WEIGHT).orElseThrow();
+        assertThat(light.label()).isEqualTo("light test weight");
+        // four half pounds at a cent down to 52, one at two cents below it
+        assertThat(light.rateFor(new BigDecimal("51.5"))).isEqualTo(new BigDecimal("0.0600"));
     }
 
     @Test

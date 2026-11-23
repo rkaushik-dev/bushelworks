@@ -31,6 +31,63 @@ class DiscountsTest {
                     .withMode(DiscountMode.PRORATE)));
 
     @Test
+    void aBoardLineIsABandAndConsecutiveLinesAreOneSchedule() {
+        List<DiscountSchedule> schedules = DiscountTable.parse(
+                """
+                commodity  factor       start  end   rate    per  mode     label
+                # the corn board
+                CORN       test_weight  54.0   52.0  0.0100  0.5  step     light test weight
+                CORN       test_weight  52.0   -     0.0200  0.5  step     light test weight
+
+                CORN       bcfm         3.0    -     0.0020  0.1  prorate
+                """);
+        assertThat(schedules).hasSize(2);
+        assertThat(schedules.get(0)).isEqualTo(CORN_TEST_WEIGHT);
+        assertThat(schedules.get(1)).isEqualTo(CORN_BCFM);
+        assertThat(schedules.get(1).label()).isEmpty();
+    }
+
+    @Test
+    void theSameFactorLaterOnTheBoardIsASecondScheduleAndTheBookRefusesIt() {
+        List<DiscountSchedule> schedules = DiscountTable.parse(
+                """
+                CORN  bcfm          3.0  -  0.0020  0.1  prorate  bcfm
+                CORN  damage_total  5.0  -  0.0100  1.0  step     total damage
+                CORN  bcfm          4.0  -  0.0030  0.1  prorate  bcfm
+                """);
+        assertThat(schedules)
+                .extracting(DiscountSchedule::factor)
+                .containsExactly(Factor.BCFM, Factor.DAMAGE_TOTAL, Factor.BCFM);
+        assertThatThrownBy(() -> new DiscountBook(schedules)).isInstanceOf(ScheduleError.class);
+    }
+
+    @Test
+    void halfALineEditedIsCaughtByItsLabel() {
+        assertThatThrownBy(
+                        () -> DiscountTable.parse(
+                                """
+                        CORN  test_weight  54.0  52.0  0.0100  0.5  step  light test weight
+                        CORN  test_weight  52.0  -     0.0200  0.5  step  light corn
+                        """))
+                .isInstanceOf(ScheduleError.class)
+                .hasMessageContaining("light corn");
+    }
+
+    @Test
+    void aBoardLineThatCannotBeReadIsRefused() {
+        assertThatThrownBy(() -> DiscountTable.parse("CORN  bcfm  3.0  -  0.0020  0.1"))
+                .isInstanceOf(ScheduleError.class);
+        assertThatThrownBy(() -> DiscountTable.parse("CORN  bcfm  three  -  0.0020  0.1  prorate"))
+                .isInstanceOf(ScheduleError.class)
+                .hasMessageContaining("'three' is not a number");
+        assertThatThrownBy(() -> DiscountTable.parse("CORN  bcfm  3.0  -  0.0020  0.1  sometimes"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> DiscountTable.parse("CORN  bcfm  3.0  2.0  0.0020  0.1  step"))
+                .isInstanceOf(ScheduleError.class);
+        assertThat(DiscountTable.parse("# nothing filed yet")).isEmpty();
+    }
+
+    @Test
     void atOrAboveTheThresholdCostsNothing() {
         assertThat(CORN_TEST_WEIGHT.rateFor(d("56.0"))).isEqualTo(d("0.0000"));
         assertThat(CORN_TEST_WEIGHT.rateFor(d("54.0"))).isEqualTo(d("0.0000"));

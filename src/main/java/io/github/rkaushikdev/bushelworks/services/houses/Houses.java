@@ -2,11 +2,8 @@ package io.github.rkaushikdev.bushelworks.services.houses;
 
 import io.github.rkaushikdev.bushelworks.Settings;
 import io.github.rkaushikdev.bushelworks.domain.assessments.AssessmentBook;
-import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
-import io.github.rkaushikdev.bushelworks.domain.discounts.DiscountBand;
 import io.github.rkaushikdev.bushelworks.domain.discounts.DiscountBook;
-import io.github.rkaushikdev.bushelworks.domain.discounts.DiscountMode;
-import io.github.rkaushikdev.bushelworks.domain.discounts.DiscountSchedule;
+import io.github.rkaushikdev.bushelworks.domain.discounts.DiscountTable;
 import io.github.rkaushikdev.bushelworks.domain.moisture.DryingSchedule;
 import io.github.rkaushikdev.bushelworks.domain.moisture.DryingTier;
 import io.github.rkaushikdev.bushelworks.domain.moisture.ShrinkMethod;
@@ -37,57 +34,28 @@ public final class Houses {
 
     private Houses() {}
 
+    /**
+     * The discount board as it hangs by the scale window, a line a band.
+     *
+     * <p>Light corn pays a cent a half pound down to 52 and two cents a half pound below it; broken
+     * corn and foreign material is prorated by the tenth.
+     */
+    public static final String DISCOUNT_BOARD =
+            """
+            commodity  factor            start  end   rate    per  mode     label
+            CORN       test_weight       54.0   52.0  0.0100  0.5  step     light test weight
+            CORN       test_weight       52.0   -     0.0200  0.5  step     light test weight
+            CORN       bcfm              3.0    -     0.0020  0.1  prorate  broken corn and foreign material
+            CORN       damage_total      5.0    -     0.0100  1.0  step     total damage
+            SOYB       foreign_material  1.0    -     0.0150  1.0  step     foreign material
+            SOYB       damage_total      3.0    -     0.0200  1.0  step     total damage
+            HRW        test_weight       58.0   -     0.0200  1.0  step     light test weight
+            HRW        dockage           1.0    -     0.0100  0.5  prorate  dockage over one percent
+            """;
+
     /** Every discount schedule the house publishes on the board. */
     public static DiscountBook discountBook() {
-        return new DiscountBook(List.of(
-                new DiscountSchedule(
-                        "CORN",
-                        Factor.TEST_WEIGHT,
-                        List.of(
-                                DiscountBand.of(new BigDecimal("54.0"), new BigDecimal("0.0100"))
-                                        .endingAt(new BigDecimal("52.0"))
-                                        .withIncrement(new BigDecimal("0.5")),
-                                DiscountBand.of(new BigDecimal("52.0"), new BigDecimal("0.0200"))
-                                        .withIncrement(new BigDecimal("0.5"))),
-                        "light test weight"),
-                new DiscountSchedule(
-                        "CORN",
-                        Factor.BCFM,
-                        List.of(DiscountBand.of(new BigDecimal("3.0"), new BigDecimal("0.0020"))
-                                .withIncrement(new BigDecimal("0.1"))
-                                .withMode(DiscountMode.PRORATE)),
-                        "broken corn and foreign material"),
-                new DiscountSchedule(
-                        "CORN",
-                        Factor.DAMAGE_TOTAL,
-                        List.of(DiscountBand.of(new BigDecimal("5.0"), new BigDecimal("0.0100"))
-                                .withIncrement(new BigDecimal("1.0"))),
-                        "total damage"),
-                new DiscountSchedule(
-                        "SOYB",
-                        Factor.FOREIGN_MATERIAL,
-                        List.of(DiscountBand.of(new BigDecimal("1.0"), new BigDecimal("0.0150"))
-                                .withIncrement(new BigDecimal("1.0"))),
-                        "foreign material"),
-                new DiscountSchedule(
-                        "SOYB",
-                        Factor.DAMAGE_TOTAL,
-                        List.of(DiscountBand.of(new BigDecimal("3.0"), new BigDecimal("0.0200"))
-                                .withIncrement(new BigDecimal("1.0"))),
-                        "total damage"),
-                new DiscountSchedule(
-                        "HRW",
-                        Factor.TEST_WEIGHT,
-                        List.of(DiscountBand.of(new BigDecimal("58.0"), new BigDecimal("0.0200"))
-                                .withIncrement(new BigDecimal("1.0"))),
-                        "light test weight"),
-                new DiscountSchedule(
-                        "HRW",
-                        Factor.DOCKAGE,
-                        List.of(DiscountBand.of(new BigDecimal("1.0"), new BigDecimal("0.0100"))
-                                .withIncrement(new BigDecimal("0.5"))
-                                .withMode(DiscountMode.PRORATE)),
-                        "dockage over one percent")));
+        return new DiscountBook(DiscountTable.parse(DISCOUNT_BOARD));
     }
 
     /** The corn shrink table at a shrink factor, refusing anything wetter than 25 percent. */
