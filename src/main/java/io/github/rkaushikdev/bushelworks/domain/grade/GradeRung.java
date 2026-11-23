@@ -2,7 +2,6 @@ package io.github.rkaushikdev.bushelworks.domain.grade;
 
 import io.github.rkaushikdev.bushelworks.Ordered;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
-import io.github.rkaushikdev.bushelworks.domain.commodity.FactorDirection;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,14 +27,7 @@ public record GradeRung(NumericalGrade grade, Map<Factor, BigDecimal> limits) {
         List<Factor> bad = new ArrayList<>();
         limits.forEach((factor, limit) -> {
             BigDecimal value = sample.get(factor);
-            if (value == null) {
-                return;
-            }
-            if (factor.direction() == FactorDirection.LOW_IS_BAD) {
-                if (value.compareTo(limit) < 0) {
-                    bad.add(factor);
-                }
-            } else if (value.compareTo(limit) > 0) {
+            if (value != null && factor.isPast(limit, value)) {
                 bad.add(factor);
             }
         });

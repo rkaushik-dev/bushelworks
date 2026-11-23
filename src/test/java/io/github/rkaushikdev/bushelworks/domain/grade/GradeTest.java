@@ -213,6 +213,62 @@ class GradeTest {
     }
 
     @Test
+    void twoPiecesOfGlassMakeANumberOneSampleGrade() {
+        GradeResult result = Grading.determine(Commodities.CORN, cornSample(Factor.GLASS, "2"));
+        assertThat(result.grade()).isSameAs(NumericalGrade.SAMPLE);
+        assertThat(result.limitingFactors()).containsExactly(Factor.GLASS);
+        assertThat(Grading.determine(Commodities.CORN, cornSample(Factor.GLASS, "1"))
+                        .grade())
+                .isSameAs(NumericalGrade.US_1);
+    }
+
+    @Test
+    void stonesAreJudgedOnTheirShareOfTheSampleWeight() {
+        assertThat(Grading.determine(Commodities.CORN, cornSample(Factor.STONES, "0.1"))
+                        .grade())
+                .isSameAs(NumericalGrade.US_1);
+        assertThat(Grading.determine(Commodities.CORN, cornSample(Factor.STONES, "0.11"))
+                        .grade())
+                .isSameAs(NumericalGrade.SAMPLE);
+    }
+
+    @Test
+    void everyBrokenCriterionIsNamedInOrder() {
+        Map<Factor, BigDecimal> sample = cornSample(Factor.TEST_WEIGHT, "50.0");
+        sample.put(Factor.CASTOR_BEANS, d("2"));
+        sample.put(Factor.ANIMAL_FILTH, d("0.25"));
+        sample.put(Factor.CROTALARIA, d("2"));
+        GradeResult result = Grading.determine(Commodities.CORN, sample);
+        assertThat(result.isSampleGrade()).isTrue();
+        assertThat(result.limitingFactors()).containsExactly(Factor.ANIMAL_FILTH, Factor.CASTOR_BEANS);
+    }
+
+    @Test
+    void aGraderMayRecordTheCriteriaOnEveryCommodity() {
+        for (String code : List.of("CORN", "SOYB", "HRW", "MILO", "SUNF")) {
+            assertThat(Commodities.get(code).gradedFactors()).as(code).containsAll(SampleGradeCriteria.FACTORS);
+            assertThat(Commodities.get(code).requiredFactors()).as(code).doesNotContain(Factor.GLASS);
+        }
+        assertThat(Factor.of("unknown_foreign_substance")).isSameAs(Factor.UNKNOWN_FOREIGN);
+    }
+
+    @Test
+    void aCommodityCanFileCriteriaOfItsOwn() {
+        assertThat(Grading.criteria("MILO")).isEqualTo(SampleGradeCriteria.STANDARD);
+        Grading.registerCriteria("WAXY", new SampleGradeCriteria(Map.of(Factor.GLASS, d("0"))));
+        assertThat(Grading.criteria("WAXY").failures(Map.of(Factor.GLASS, d("1"), Factor.STONES, d("5"))))
+                .containsExactly(Factor.GLASS);
+    }
+
+    @Test
+    void aLadderFactorIsNotACriterion() {
+        assertThatThrownBy(() -> new SampleGradeCriteria(Map.of(Factor.BCFM, d("5"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new SampleGradeCriteria(Map.of(Factor.GLASS, d("-1"))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void unknownLadderRaises() {
         assertThatThrownBy(() -> Grading.ladder("BARLEY")).isInstanceOf(NoGradeTable.class);
     }

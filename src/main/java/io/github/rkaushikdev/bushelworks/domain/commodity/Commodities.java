@@ -1,6 +1,8 @@
 package io.github.rkaushikdev.bushelworks.domain.commodity;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,7 +25,7 @@ public final class Commodities {
             new BigDecimal("15.0"),
             PriceUnit.BUSHEL,
             Set.of(Factor.TEST_WEIGHT, Factor.MOISTURE, Factor.BCFM, Factor.DAMAGE_TOTAL),
-            Set.of(Factor.DAMAGE_HEAT)));
+            optional(Factor.DAMAGE_HEAT)));
 
     public static final Commodity SOYBEANS = register(new Commodity(
             "SOYB",
@@ -32,7 +34,7 @@ public final class Commodities {
             new BigDecimal("13.0"),
             PriceUnit.BUSHEL,
             Set.of(Factor.TEST_WEIGHT, Factor.MOISTURE, Factor.FOREIGN_MATERIAL, Factor.DAMAGE_TOTAL, Factor.SPLITS),
-            Set.of(Factor.DAMAGE_HEAT, Factor.OIL)));
+            optional(Factor.DAMAGE_HEAT, Factor.OIL)));
 
     public static final Commodity HRW_WHEAT = register(new Commodity(
             "HRW",
@@ -47,7 +49,7 @@ public final class Commodities {
                     Factor.DAMAGE_TOTAL,
                     Factor.SHRUNKEN_BROKEN,
                     Factor.TOTAL_DEFECTS),
-            Set.of(Factor.PROTEIN, Factor.FALLING_NUMBER, Factor.DAMAGE_HEAT)));
+            optional(Factor.PROTEIN, Factor.FALLING_NUMBER, Factor.DAMAGE_HEAT)));
 
     public static final Commodity GRAIN_SORGHUM = register(new Commodity(
             "MILO",
@@ -56,7 +58,7 @@ public final class Commodities {
             new BigDecimal("14.0"),
             PriceUnit.BUSHEL,
             Set.of(Factor.TEST_WEIGHT, Factor.MOISTURE, Factor.FOREIGN_MATERIAL, Factor.DAMAGE_TOTAL),
-            Set.of()));
+            optional()));
 
     public static final Commodity SUNFLOWER = register(new Commodity(
             "SUNF",
@@ -65,9 +67,25 @@ public final class Commodities {
             new BigDecimal("10.0"),
             PriceUnit.HUNDREDWEIGHT,
             Set.of(Factor.MOISTURE, Factor.FOREIGN_MATERIAL, Factor.DAMAGE_TOTAL),
-            Set.of(Factor.OIL)));
+            optional(Factor.OIL)));
 
     private Commodities() {}
+
+    /**
+     * A commodity's optional factors, with the counts and percentages that can make any load Sample
+     * Grade, which a grader may always record.
+     */
+    private static Set<Factor> optional(Factor... factors) {
+        Set<Factor> all = EnumSet.of(
+                Factor.STONES,
+                Factor.GLASS,
+                Factor.CROTALARIA,
+                Factor.CASTOR_BEANS,
+                Factor.UNKNOWN_FOREIGN,
+                Factor.ANIMAL_FILTH);
+        all.addAll(Arrays.asList(factors));
+        return all;
+    }
 
     /** Put a commodity on the master, replacing one with the same code. */
     public static Commodity register(Commodity commodity) {

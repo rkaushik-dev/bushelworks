@@ -22,11 +22,14 @@ import java.util.stream.Collectors;
  * <p>The limits are the US standards the house grades against. They are stated as an ordered
  * ladder from best to worst, and determination walks the ladder from the top and stops at the first
  * rung the sample can stand on. A sample that falls off the bottom is Sample Grade, which is not a
- * grade so much as a refusal to give one.
+ * grade so much as a refusal to give one. So is a sample that breaks any of its commodity's {@link
+ * SampleGradeCriteria}, before the ladder is looked at at all.
  */
 public final class Grading {
 
     private static final Map<String, List<GradeRung>> LADDERS = new ConcurrentHashMap<>();
+
+    private static final Map<String, SampleGradeCriteria> CRITERIA = new ConcurrentHashMap<>();
 
     /** Yellow corn: test weight is a floor, the rest are ceilings. */
     static final String CORN =
@@ -104,6 +107,16 @@ public final class Grading {
         registerLadder(commodityCode, GradeTable.parse(commodityCode, table));
     }
 
+    /** Put sample grade criteria on file for a commodity, in place of the standard ones. */
+    public static void registerCriteria(String commodityCode, SampleGradeCriteria criteria) {
+        CRITERIA.put(commodityCode, criteria);
+    }
+
+    /** What makes a load of this commodity Sample Grade off the ladder: the standard list unless filed. */
+    public static SampleGradeCriteria criteria(String commodityCode) {
+        return CRITERIA.getOrDefault(commodityCode, SampleGradeCriteria.STANDARD);
+    }
+
     /** The ladder for a commodity, best rung first. */
     public static List<GradeRung> ladder(String commodityCode) {
         List<GradeRung> rungs = LADDERS.get(commodityCode);
@@ -137,10 +150,16 @@ public final class Grading {
      *
      * <p>The limiting factors are the ones that kept the sample off the rung above the one it
      * landed on, which is what the grader tells the driver when he asks why his corn is a three.
+     * A sample that breaks a sample grade criterion is Sample Grade, limited by the criteria it
+     * broke, whatever the ladder would have said.
      */
     public static GradeResult determine(Commodity commodity, Map<Factor, BigDecimal> sample) {
         require(commodity, sample);
         List<GradeRung> rungs = ladder(commodity.code());
+        List<Factor> broken = criteria(commodity.code()).failures(sample);
+        if (!broken.isEmpty()) {
+            return new GradeResult(NumericalGrade.SAMPLE, broken);
+        }
 
         GradeRung previous = null;
         for (GradeRung rung : rungs) {

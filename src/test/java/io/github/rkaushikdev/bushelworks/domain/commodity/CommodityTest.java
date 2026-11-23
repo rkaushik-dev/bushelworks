@@ -65,4 +65,14 @@ class CommodityTest {
         assertThat(Factor.TEST_WEIGHT.direction()).isSameAs(FactorDirection.LOW_IS_BAD);
         assertThat(Factor.MOISTURE.direction()).isSameAs(FactorDirection.HIGH_IS_BAD);
     }
+
+    @Test
+    void aReadingAtTheLimitIsNotPastIt() {
+        assertThat(Factor.TEST_WEIGHT.isPast(d("54.0"), d("53.9"))).isTrue();
+        assertThat(Factor.TEST_WEIGHT.isPast(d("54.0"), d("54.0"))).isFalse();
+        assertThat(Factor.TEST_WEIGHT.isPast(d("54.0"), d("58.2"))).isFalse();
+        assertThat(Factor.BCFM.isPast(d("3.0"), d("3.1"))).isTrue();
+        assertThat(Factor.BCFM.isPast(d("3.0"), d("3.0"))).isFalse();
+        assertThat(Factor.STONES.direction()).isSameAs(FactorDirection.HIGH_IS_BAD);
+    }
 }
