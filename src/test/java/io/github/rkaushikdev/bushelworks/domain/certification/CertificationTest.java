@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class CertificationTest {
 
@@ -66,7 +68,101 @@ class CertificationTest {
     void aSmallErrorIsInsideTolerance() {
         assertThat(aTest().indicatedPounds(d("60040")).build().isWithinTolerance())
                 .isTrue();
-        assertThat(ScaleTest.TOLERANCE).isEqualByComparingTo(d("0.001"));
+        assertThat(aTest().build().tolerancePounds()).isEqualByComparingTo(d("120"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1, 1", "500, 1", "501, 2", "1000, 2", "1001, 3", "1500, 3", "1501, 4", "3000, 6", "6000, 12"})
+    void theMaintenanceToleranceGrowsADivisionEveryFiveHundred(long divisions, long tolerance) {
+        assertThat(Tolerance.maintenanceDivisions(divisions)).isEqualTo(tolerance);
+    }
+
+    @Test
+    void aTestLoadOfNoDivisionsHasNoTolerance() {
+        assertThatThrownBy(() -> Tolerance.maintenanceDivisions(0)).isInstanceOf(CertificationError.class);
+    }
+
+    @Test
+    void thirtyTonsOnTwentyPoundDivisionsIsThreeThousandDivisions() {
+        ScaleTest test = aTest().build();
+        assertThat(test.testLoadDivisions()).isEqualTo(3000);
+        assertThat(test.tolerance()).isEqualTo(Tolerance.MAINTENANCE);
+        assertThat(test.divisionPounds()).isEqualByComparingTo(ScaleTest.STANDARD_DIVISION);
+    }
+
+    @Test
+    void anErrorExactlyAtTheMaintenanceLimitPasses() {
+        assertThat(aTest().indicatedPounds(d("60120")).build().isWithinTolerance())
+                .isTrue();
+        assertThat(aTest().indicatedPounds(d("59880")).build().isWithinTolerance())
+                .isTrue();
+        assertThat(aTest().indicatedPounds(d("60140")).build().isWithinTolerance())
+                .isFalse();
+    }
+
+    @Test
+    void anAdjustedScaleIsHeldToHalfTheMaintenanceTolerance() {
+        ScaleTest.Builder adjusted = aTest().tolerance(Tolerance.ACCEPTANCE);
+        assertThat(adjusted.build().tolerancePounds()).isEqualByComparingTo(d("60"));
+        assertThat(adjusted.indicatedPounds(d("60060")).build().isWithinTolerance())
+                .isTrue();
+        assertThat(adjusted.indicatedPounds(d("60080")).build().isWithinTolerance())
+                .isFalse();
+        assertThat(aTest().indicatedPounds(d("60080")).build().isWithinTolerance())
+                .isTrue();
+    }
+
+    @Test
+    void aPartDivisionOfTestLoadCountsAsAWholeOne() {
+        ScaleTest test =
+                aTest().testLoadPounds(d("10010")).indicatedPounds(d("10010")).build();
+        assertThat(test.testLoadDivisions()).isEqualTo(501);
+        assertThat(test.tolerancePounds()).isEqualByComparingTo(d("40"));
+    }
+
+    @Test
+    void aFinerDivisionMeansMoreDivisionsButTheSamePounds() {
+        ScaleTest test = aTest().divisionPounds(d("10")).build();
+        assertThat(test.testLoadDivisions()).isEqualTo(6000);
+        assertThat(test.tolerancePounds()).isEqualByComparingTo(d("120"));
+        assertThat(aTest().divisionPounds(d("50")).build().tolerancePounds()).isEqualByComparingTo(d("150"));
+    }
+
+    @Test
+    void aScaleWithNoDivisionIsRefused() {
+        assertThatThrownBy(() -> aTest().divisionPounds(d("0")).build()).isInstanceOf(CertificationError.class);
+    }
+
+    @Test
+    void theToleranceColumnsReadBackFromTheirValues() {
+        assertThat(Tolerance.of("acceptance")).isEqualTo(Tolerance.ACCEPTANCE);
+        assertThat(Tolerance.of("maintenance")).isEqualTo(Tolerance.MAINTENANCE);
+    }
+
+    @Test
+    void anUnrecordedResultFollowsTheTolerance() {
+        assertThat(aTest().indicatedPounds(d("60120")).build().result()).isEqualTo(Result.PASS);
+        assertThat(aTest().indicatedPounds(d("60140")).build().result()).isEqualTo(Result.FAIL);
+        assertThat(aTest().tolerance(Tolerance.ACCEPTANCE)
+                        .indicatedPounds(d("60080"))
+                        .build()
+                        .result())
+                .isEqualTo(Result.FAIL);
+    }
+
+    @Test
+    void aResultTheTesterWroteDownStands() {
+        ScaleTest adjusted =
+                aTest().indicatedPounds(d("60140")).result(Result.ADJUSTED).build();
+        assertThat(adjusted.result()).isEqualTo(Result.ADJUSTED);
+        assertThat(adjusted.isWithinTolerance()).isFalse();
+    }
+
+    @Test
+    void aCopyKeepsTheDivisionAndTheColumn() {
+        ScaleTest test =
+                aTest().divisionPounds(d("10")).tolerance(Tolerance.ACCEPTANCE).build();
+        assertThat(test.toBuilder().build()).isEqualTo(test);
     }
 
     @Test
