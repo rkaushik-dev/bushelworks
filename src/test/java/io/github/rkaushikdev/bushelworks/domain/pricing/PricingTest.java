@@ -4,6 +4,7 @@ import static io.github.rkaushikdev.bushelworks.TestDecimals.d;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.rkaushikdev.bushelworks.domain.calendars.BusinessCalendar;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -59,9 +60,45 @@ class PricingTest {
         assertThatThrownBy(() -> new FuturesMonth("CORN", "B", 2024)).isInstanceOf(PricingError.class);
     }
 
+    static BusinessCalendar exchange() {
+        BusinessCalendar calendar = new BusinessCalendar("cbot");
+        calendar.declareHoliday(LocalDate.of(2024, 11, 28));
+        calendar.declareHoliday(LocalDate.of(2024, 12, 25));
+        return calendar;
+    }
+
     @Test
-    void firstNoticeIsTheFirstOfTheDeliveryMonth() {
-        assertThat(CZ4.firstNotice()).isEqualTo(LocalDate.of(2024, 12, 1));
+    void firstNoticeIsTheLastBusinessDayBeforeTheDeliveryMonth() {
+        assertThat(CZ4.deliveryMonthStart()).isEqualTo(LocalDate.of(2024, 12, 1));
+        assertThat(CZ4.firstNotice()).isEqualTo(LocalDate.of(2024, 11, 29));
+        assertThat(CH5.firstNotice(exchange())).isEqualTo(LocalDate.of(2025, 2, 28));
+        assertThat(new FuturesMonth("CORN", "U", 2024).firstNotice()).isEqualTo(LocalDate.of(2024, 8, 30));
+    }
+
+    @Test
+    void theFirstPositionDayIsTheBusinessDayBeforeFirstNotice() {
+        assertThat(CZ4.firstPositionDay(exchange())).isEqualTo(LocalDate.of(2024, 11, 27));
+        assertThat(CZ4.firstPositionDay(new BusinessCalendar("plain"))).isEqualTo(LocalDate.of(2024, 11, 28));
+    }
+
+    @Test
+    void theLastTradingDayIsTheBusinessDayBeforeTheFifteenth() {
+        assertThat(CZ4.lastTradingDay(exchange())).isEqualTo(LocalDate.of(2024, 12, 13));
+        assertThat(CN4.lastTradingDay(exchange())).isEqualTo(LocalDate.of(2024, 7, 12));
+        assertThat(new FuturesMonth("CORN", "K", 2025).lastTradingDay(exchange()))
+                .isEqualTo(LocalDate.of(2025, 5, 14));
+    }
+
+    @Test
+    void theLastDeliveryDayIsTwoBusinessDaysAfterTrading() {
+        assertThat(CZ4.lastDeliveryDay(exchange())).isEqualTo(LocalDate.of(2024, 12, 17));
+    }
+
+    @Test
+    void aShortHasToBeRolledFromTheFirstPositionDay() {
+        assertThat(CZ4.mustRollBy(LocalDate.of(2024, 11, 26), exchange())).isFalse();
+        assertThat(CZ4.mustRollBy(LocalDate.of(2024, 11, 27), exchange())).isTrue();
+        assertThat(CZ4.mustRollBy(LocalDate.of(2024, 12, 2), exchange())).isTrue();
     }
 
     @Test

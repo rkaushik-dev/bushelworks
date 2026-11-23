@@ -2,6 +2,7 @@ package io.github.rkaushikdev.bushelworks.domain.hedging;
 
 import io.github.rkaushikdev.bushelworks.Decimals;
 import io.github.rkaushikdev.bushelworks.Money;
+import io.github.rkaushikdev.bushelworks.domain.calendars.BusinessCalendar;
 import io.github.rkaushikdev.bushelworks.domain.pricing.FuturesMonth;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -90,5 +91,20 @@ public final class Hedging {
     /** The months with something on, in delivery order. */
     public static List<FuturesMonth> monthsOn(Account account) {
         return account.byMonth().keySet().stream().sorted(FuturesMonth.ORDER).toList();
+    }
+
+    /**
+     * The months with something on whose first position day falls within {@code businessDays} of
+     * {@code today}, or has already passed, in delivery order.
+     *
+     * <p>This is the list the manager reads on the Monday before the roll: anything on it either
+     * rolls this week or risks a delivery notice.
+     */
+    public static List<FuturesMonth> dueToRoll(
+            Account account, LocalDate today, int businessDays, BusinessCalendar exchange) {
+        LocalDate horizon = exchange.addBusinessDays(today, businessDays);
+        return monthsOn(account).stream()
+                .filter(month -> month.mustRollBy(horizon, exchange))
+                .toList();
     }
 }

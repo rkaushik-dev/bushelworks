@@ -1,5 +1,6 @@
 package io.github.rkaushikdev.bushelworks.domain.pricing;
 
+import io.github.rkaushikdev.bushelworks.domain.calendars.BusinessCalendar;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -12,6 +13,12 @@ import java.util.Objects;
  * <p>Month codes are the CME grain codes. Months are ordered by year then by the month letter's
  * position in the delivery cycle, never alphabetically, which is the mistake that puts December
  * before July.
+ *
+ * <p>The days that matter to the hedge desk are the exchange's, and they are business days on the
+ * exchange's calendar: first notice is the last business day of the month before delivery, the
+ * first position day the business day before that, and the last trading day the business day
+ * before the fifteenth of the delivery month. A short hedge still on at first position day can be
+ * handed a delivery notice, which a country elevator does not want.
  *
  * @param commodityCode the commodity the month trades
  * @param monthCode the delivery month letter
@@ -69,15 +76,48 @@ public record FuturesMonth(String commodityCode, String monthCode, int year) imp
         return commodityCode + monthCode + String.format("%02d", year % 100);
     }
 
-    /**
-     * The first of the delivery month.
-     *
-     * <p>The exchange calendar lives elsewhere. What this package needs is an ordering and a rough
-     * cut off for rolling a hedge to arrive contract, and the first of the delivery month is the
-     * convention the office uses.
-     */
-    public LocalDate firstNotice() {
+    /** The day of the delivery month the last trading day falls before. */
+    static final int LAST_TRADE_BEFORE = 15;
+
+    /** Business days between the first position day and first notice. */
+    static final int POSITION_DAYS = 1;
+
+    /** Business days from the last trading day to the last delivery day. */
+    static final int DELIVERY_DAYS_AFTER_TRADING = 2;
+
+    /** The first of the delivery month, which is where every exchange date is counted from. */
+    public LocalDate deliveryMonthStart() {
         return LocalDate.of(year, monthNumber(), 1);
+    }
+
+    /** First notice on a calendar with weekends off and no exchange holidays declared. */
+    public LocalDate firstNotice() {
+        return firstNotice(new BusinessCalendar("exchange"));
+    }
+
+    /** First notice: the last business day of the month before the delivery month. */
+    public LocalDate firstNotice(BusinessCalendar exchange) {
+        return exchange.previousBusinessDay(deliveryMonthStart());
+    }
+
+    /** The first position day, when a long still on can be assigned a delivery: the day before first notice. */
+    public LocalDate firstPositionDay(BusinessCalendar exchange) {
+        return exchange.addBusinessDays(firstNotice(exchange), -POSITION_DAYS);
+    }
+
+    /** The last trading day: the business day before the fifteenth of the delivery month. */
+    public LocalDate lastTradingDay(BusinessCalendar exchange) {
+        return exchange.previousBusinessDay(deliveryMonthStart().withDayOfMonth(LAST_TRADE_BEFORE));
+    }
+
+    /** The last delivery day: the second business day after the last trading day. */
+    public LocalDate lastDeliveryDay(BusinessCalendar exchange) {
+        return exchange.addBusinessDays(lastTradingDay(exchange), DELIVERY_DAYS_AFTER_TRADING);
+    }
+
+    /** Whether a short on this month has to be rolled on or before {@code day}, being past first position day. */
+    public boolean mustRollBy(LocalDate day, BusinessCalendar exchange) {
+        return !day.isBefore(firstPositionDay(exchange));
     }
 
     public boolean isBefore(FuturesMonth other) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.bushelworks.ConflictError;
+import io.github.rkaushikdev.bushelworks.domain.calendars.BusinessCalendar;
 import io.github.rkaushikdev.bushelworks.domain.pricing.FuturesMonth;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,6 +25,31 @@ class HedgingTest {
 
     static Lot aLot() {
         return aLot("F-0001", CZ4, Side.SHORT, 10, "4.5750");
+    }
+
+    @Test
+    void theMonthsDueToRollAreTheOnesNearingFirstPosition() {
+        Account account = new Account();
+        account.add(aLot());
+        account.add(aLot("F-0002", CH5, Side.SHORT, 4, "4.7200"));
+        BusinessCalendar exchange = new BusinessCalendar("cbot");
+        exchange.declareHoliday(LocalDate.of(2024, 11, 28));
+        // the Wednesday before Thanksgiving is first position day for December
+        assertThat(Hedging.dueToRoll(account, LocalDate.of(2024, 11, 18), 5, exchange))
+                .isEmpty();
+        assertThat(Hedging.dueToRoll(account, LocalDate.of(2024, 11, 20), 5, exchange))
+                .containsExactly(CZ4);
+        assertThat(Hedging.dueToRoll(account, LocalDate.of(2025, 2, 27), 0, exchange))
+                .containsExactly(CZ4, CH5);
+    }
+
+    @Test
+    void aFlatMonthIsNeverDueToRoll() {
+        Account account = new Account();
+        account.add(aLot());
+        account.add(aLot("F-0003", CZ4, Side.LONG, 10, "4.6000"));
+        assertThat(Hedging.dueToRoll(account, LocalDate.of(2024, 12, 2), 0, new BusinessCalendar("cbot")))
+                .isEmpty();
     }
 
     @Test
