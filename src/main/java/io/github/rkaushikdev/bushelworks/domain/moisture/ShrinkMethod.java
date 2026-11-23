@@ -8,11 +8,13 @@ import io.github.rkaushikdev.bushelworks.ValueEnum;
  * <p>The water method removes only the weight of the water and is what the arithmetic actually
  * supports. The table method multiplies the points of moisture by a published shrink factor
  * slightly above the water figure, so the number also covers the handling loss through the dryer.
- * A house picks one per commodity and never mixes them.
+ * The chart method reads the percent straight off a printed {@link ShrinkChart}, row by row. A
+ * house picks one per commodity and never mixes them.
  */
 public enum ShrinkMethod implements ValueEnum {
     WATER("water"),
     TABLE("table"),
+    CHART("chart"),
     NONE("none");
 
     private final String value;

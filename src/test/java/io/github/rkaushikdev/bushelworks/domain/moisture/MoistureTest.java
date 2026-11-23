@@ -82,6 +82,82 @@ class MoistureTest {
         assertThatThrownBy(() -> CORN_TABLE.shrinkPercent(d("100"))).isInstanceOf(MoistureError.class);
     }
 
+    static final ShrinkChart CORN_CHART = ShrinkChart.of(List.of(
+            new ShrinkChart.Row(d("15.5"), d("0.6")),
+            new ShrinkChart.Row(d("16.0"), d("1.2")),
+            new ShrinkChart.Row(d("16.5"), d("1.8")),
+            new ShrinkChart.Row(d("17.0"), d("2.4")),
+            new ShrinkChart.Row(d("17.5"), d("3.0")),
+            new ShrinkChart.Row(d("18.0"), d("3.6")),
+            new ShrinkChart.Row(d("18.5"), d("4.3"))));
+
+    static final ShrinkSchedule CORN_CHARTED =
+            ShrinkSchedule.of("CORN", d("15.0")).withChart(CORN_CHART);
+
+    @Test
+    void aChartedReadingTakesTheRowItRunsTo() {
+        assertThat(CORN_CHARTED.method()).isEqualTo(ShrinkMethod.CHART);
+        assertThat(CORN_CHARTED.shrinkPercent(d("17.5"))).isEqualTo(d("3.0000"));
+        assertThat(CORN_CHARTED.shrinkPercent(d("17.3"))).isEqualTo(d("3.0000"));
+        assertThat(CORN_CHARTED.shrinkPercent(d("17.6"))).isEqualTo(d("3.6000"));
+        assertThat(CORN_CHARTED.shrinkPercent(d("15.1"))).isEqualTo(d("0.6000"));
+    }
+
+    @Test
+    void aChartedLoadAtOrUnderBaseDoesNotShrink() {
+        assertThat(CORN_CHARTED.shrinkPercent(d("15.0"))).isEqualTo(d("0.0000"));
+        assertThat(CORN_CHARTED.shrinkPercent(d("13.8"))).isEqualTo(d("0.0000"));
+    }
+
+    @Test
+    void theChartAndTheFactorDisagreeOnTheWorkedLoad() {
+        // the chart's 18.5 row is 4.3, the factor gives 3.2 points at 1.18
+        assertThat(CORN_CHARTED.shrinkPercent(d("18.2"))).isEqualTo(d("4.3000"));
+        assertThat(CORN_TABLE.shrinkPercent(d("18.2"))).isEqualTo(d("3.7760"));
+        assertThat(CORN_CHARTED.dryBushels(d("1000.0000"), d("18.2"))).isEqualTo(d("957.0000"));
+    }
+
+    @Test
+    void aReadingOffTheEndOfAChartThatStopsIsRefused() {
+        assertThatThrownBy(() -> CORN_CHARTED.shrinkPercent(d("19.0")))
+                .isInstanceOf(MoistureError.class)
+                .hasMessageContaining("18.5");
+    }
+
+    @Test
+    void aChartThatRunsOnAddsSoMuchAPointPastItsLastRow() {
+        ShrinkSchedule runsOn = ShrinkSchedule.of("CORN", d("15.0")).withChart(CORN_CHART.runningOnAt(d("1.4")));
+        assertThat(runsOn.shrinkPercent(d("19.5"))).isEqualTo(d("5.7000"));
+        assertThat(runsOn.shrinkPercent(d("18.5"))).isEqualTo(d("4.3000"));
+    }
+
+    @Test
+    void theHouseLimitStillAppliesToAChartedLoad() {
+        ShrinkSchedule limited = CORN_CHARTED.withRejectAbove(d("18.0"));
+        assertThat(limited.chart()).contains(CORN_CHART);
+        assertThatThrownBy(() -> limited.shrinkPercent(d("18.2"))).isInstanceOf(MoistureError.class);
+    }
+
+    @Test
+    void theChartMethodNeedsAChart() {
+        assertThatThrownBy(() -> ShrinkSchedule.of("CORN", d("15.0")).withMethod(ShrinkMethod.CHART))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ShrinkMethod.of("chart")).isEqualTo(ShrinkMethod.CHART);
+    }
+
+    @Test
+    void aChartHasToReadDownTheWayItIsPrinted() {
+        assertThatThrownBy(() -> ShrinkChart.of(List.of())).isInstanceOf(MoistureError.class);
+        assertThatThrownBy(() -> ShrinkChart.of(
+                        List.of(new ShrinkChart.Row(d("16.0"), d("1.2")), new ShrinkChart.Row(d("15.5"), d("0.6")))))
+                .isInstanceOf(MoistureError.class);
+        assertThatThrownBy(() -> ShrinkChart.of(
+                        List.of(new ShrinkChart.Row(d("15.5"), d("1.2")), new ShrinkChart.Row(d("16.0"), d("0.6")))))
+                .isInstanceOf(MoistureError.class);
+        assertThatThrownBy(() -> new ShrinkChart.Row(d("15.5"), d("-0.1"))).isInstanceOf(MoistureError.class);
+        assertThatThrownBy(() -> CORN_CHART.runningOnAt(d("0"))).isInstanceOf(MoistureError.class);
+    }
+
     @Test
     void dryingWithinTheFirstTier() {
         assertThat(DRYER.rateFor(d("1.5"))).isEqualTo(d("0.0450"));

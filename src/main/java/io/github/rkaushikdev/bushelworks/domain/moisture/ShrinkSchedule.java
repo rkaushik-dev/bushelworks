@@ -20,6 +20,7 @@ import java.util.Optional;
  * @param shrinkFactor percent of shrink per point over base, for the table method
  * @param handlingLossPercent percent added to the water shrink for what the dryer loses
  * @param rejectAbove the moisture above which the house will not take the load, if it has one
+ * @param chart the printed chart, for the chart method
  */
 public record ShrinkSchedule(
         String commodityCode,
@@ -27,7 +28,8 @@ public record ShrinkSchedule(
         ShrinkMethod method,
         BigDecimal shrinkFactor,
         BigDecimal handlingLossPercent,
-        Optional<BigDecimal> rejectAbove) {
+        Optional<BigDecimal> rejectAbove,
+        Optional<ShrinkChart> chart) {
 
     /** Shrink percentages carry four places. */
     public static final BigDecimal PERCENT_PLACES = new BigDecimal("0.0001");
@@ -36,6 +38,7 @@ public record ShrinkSchedule(
         Objects.requireNonNull(commodityCode, "commodityCode");
         Objects.requireNonNull(method, "method");
         Objects.requireNonNull(rejectAbove, "rejectAbove");
+        Objects.requireNonNull(chart, "chart");
         if (baseMoisture.signum() <= 0 || baseMoisture.compareTo(Decimals.HUNDRED) >= 0) {
             throw new IllegalArgumentException(commodityCode + ": base moisture out of range");
         }
@@ -44,6 +47,9 @@ public record ShrinkSchedule(
         }
         if (handlingLossPercent.signum() < 0) {
             throw new IllegalArgumentException(commodityCode + ": handling loss cannot be negative");
+        }
+        if (method == ShrinkMethod.CHART && chart.isEmpty()) {
+            throw new IllegalArgumentException(commodityCode + ": the chart method needs a chart");
         }
     }
 
@@ -55,24 +61,38 @@ public record ShrinkSchedule(
                 ShrinkMethod.TABLE,
                 new BigDecimal("1.18"),
                 BigDecimal.ZERO,
+                Optional.empty(),
                 Optional.empty());
     }
 
     public ShrinkSchedule withMethod(ShrinkMethod value) {
-        return new ShrinkSchedule(commodityCode, baseMoisture, value, shrinkFactor, handlingLossPercent, rejectAbove);
+        return new ShrinkSchedule(
+                commodityCode, baseMoisture, value, shrinkFactor, handlingLossPercent, rejectAbove, chart);
     }
 
     public ShrinkSchedule withShrinkFactor(BigDecimal value) {
-        return new ShrinkSchedule(commodityCode, baseMoisture, method, value, handlingLossPercent, rejectAbove);
+        return new ShrinkSchedule(commodityCode, baseMoisture, method, value, handlingLossPercent, rejectAbove, chart);
     }
 
     public ShrinkSchedule withHandlingLossPercent(BigDecimal value) {
-        return new ShrinkSchedule(commodityCode, baseMoisture, method, shrinkFactor, value, rejectAbove);
+        return new ShrinkSchedule(commodityCode, baseMoisture, method, shrinkFactor, value, rejectAbove, chart);
     }
 
     public ShrinkSchedule withRejectAbove(BigDecimal value) {
         return new ShrinkSchedule(
-                commodityCode, baseMoisture, method, shrinkFactor, handlingLossPercent, Optional.of(value));
+                commodityCode, baseMoisture, method, shrinkFactor, handlingLossPercent, Optional.of(value), chart);
+    }
+
+    /** Shrink off a printed chart from now on. */
+    public ShrinkSchedule withChart(ShrinkChart value) {
+        return new ShrinkSchedule(
+                commodityCode,
+                baseMoisture,
+                ShrinkMethod.CHART,
+                shrinkFactor,
+                handlingLossPercent,
+                rejectAbove,
+                Optional.of(value));
     }
 
     /**
@@ -97,15 +117,19 @@ public record ShrinkSchedule(
                     commodityCode + ": " + moisture + "% is above the " + rejectAbove.get() + "% limit");
         }
         BigDecimal points = pointsOver(moisture);
-        if (points.signum() == 0 || method == ShrinkMethod.NONE) {
+        if (points.signum() == 0) {
             return new BigDecimal("0.0000");
         }
-        if (method == ShrinkMethod.WATER) {
-            BigDecimal water = Decimals.divide(points, Decimals.HUNDRED.subtract(baseMoisture))
-                    .multiply(Decimals.HUNDRED);
-            return Units.quantize(water.add(handlingLossPercent), PERCENT_PLACES);
-        }
-        return Units.quantize(points.multiply(shrinkFactor), PERCENT_PLACES);
+        return switch (method) {
+            case NONE -> new BigDecimal("0.0000");
+            case WATER -> {
+                BigDecimal water = Decimals.divide(points, Decimals.HUNDRED.subtract(baseMoisture))
+                        .multiply(Decimals.HUNDRED);
+                yield Units.quantize(water.add(handlingLossPercent), PERCENT_PLACES);
+            }
+            case TABLE -> Units.quantize(points.multiply(shrinkFactor), PERCENT_PLACES);
+            case CHART -> chart.orElseThrow().percentAt(moisture);
+        };
     }
 
     /** Wet bushels less the shrink, at bushel precision. */
