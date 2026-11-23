@@ -190,6 +190,54 @@ class LedgerTest {
             assertThat(codes).isSorted();
             assertThat(codes).hasSize(chart.size());
         }
+
+        @Test
+        void theStandardSheetFilesTwentyFiveAccountsUnderFiveHeadings() {
+            assertThat(chart.size()).isEqualTo(25);
+            assertThat(chart.get("1210").name()).isEqualTo("Grain inventory, company owned");
+            assertThat(chart.get("1210").parent()).contains("1200");
+            assertThat(chart.get("4000").parent()).isEmpty();
+            assertThat(chart.childrenOf("2000"))
+                    .extracting(Account::code)
+                    .containsExactly("2100", "2200", "2300", "2400");
+        }
+
+        @Test
+        void aSheetCanSayWhereAnAccountCloses() {
+            ChartOfAccounts filed = ChartOfAccounts.parse(
+                    """
+                    code | name              | type    | under | closes to
+                    3000 | Equity            | equity  | -     | -
+                    3100 | Retained earnings | equity  | 3000  | -
+                    4000 | Revenue           | revenue | -     | 3100
+                    """);
+            assertThat(filed.get("4000").closesTo()).contains("3100");
+            assertThat(filed.get("3100").closesTo()).isEmpty();
+        }
+
+        @Test
+        void aCodeOutsideItsTypesThousandIsRefused() {
+            assertThatThrownBy(() -> ChartOfAccounts.parse("4600 | Buy back fees | expense | - | -"))
+                    .isInstanceOf(LedgerError.class)
+                    .hasMessageContaining("start with 5");
+            assertThatThrownBy(() -> ChartOfAccounts.parse("4600 | Buy back fees | revenue | -"))
+                    .isInstanceOf(LedgerError.class)
+                    .hasMessageContaining("5 columns");
+            assertThatThrownBy(() -> ChartOfAccounts.parse("4600 | Buy back fees | income | - | -"))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(AccountType.EXPENSE.leadingDigit()).isEqualTo('5');
+        }
+
+        @Test
+        void aSheetFilesAChildOnlyUnderAParentAboveIt() {
+            assertThatThrownBy(
+                            () -> ChartOfAccounts.parse(
+                                    """
+                            4100 | Storage revenue | revenue | 4000 | -
+                            4000 | Revenue         | revenue | -    | -
+                            """))
+                    .isInstanceOf(AccountNotFound.class);
+        }
     }
 
     @Nested

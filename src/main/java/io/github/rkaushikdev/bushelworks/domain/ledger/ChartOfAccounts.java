@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.bushelworks.domain.ledger;
 
 import io.github.rkaushikdev.bushelworks.ConflictError;
+import io.github.rkaushikdev.bushelworks.FiledSheet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,6 +35,43 @@ public final class ChartOfAccounts implements Iterable<Account> {
         for (Account account : accounts) {
             add(account);
         }
+    }
+
+    /**
+     * The chart a filed sheet describes, a row an account with the columns between bars.
+     *
+     * <pre>
+     *     code | name | type | under | closes to
+     * </pre>
+     *
+     * <p>A dash under {@code under} is a top heading and a dash under {@code closes to} closes to
+     * nothing in particular. A parent has to be on a line above its children, and a code has to start
+     * with the digit its type is numbered in.
+     *
+     * @throws LedgerError naming the line, when a row cannot be read or is numbered outside its type
+     */
+    public static ChartOfAccounts parse(String sheet) {
+        ChartOfAccounts chart = new ChartOfAccounts();
+        for (String line : FiledSheet.rows(sheet, "code")) {
+            String[] cells = FiledSheet.barred(line);
+            if (cells.length != 5) {
+                throw new LedgerError("an account needs 5 columns, not " + cells.length + ": " + line);
+            }
+            AccountType type = AccountType.of(cells[2]);
+            if (cells[0].isEmpty() || cells[0].charAt(0) != type.leadingDigit()) {
+                throw new LedgerError(cells[0] + " is numbered outside the " + type.value()
+                        + " accounts, which start with " + type.leadingDigit() + ": " + line);
+            }
+            Account account = Account.of(cells[0], cells[1], type);
+            if (!cells[3].equals(FiledSheet.NOTHING)) {
+                account = account.withParent(cells[3]);
+            }
+            if (!cells[4].equals(FiledSheet.NOTHING)) {
+                account = account.withClosesTo(cells[4]);
+            }
+            chart.add(account);
+        }
+        return chart;
     }
 
     /**

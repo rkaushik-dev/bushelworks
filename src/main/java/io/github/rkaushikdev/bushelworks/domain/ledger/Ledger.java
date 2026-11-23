@@ -102,44 +102,44 @@ public final class Ledger {
     }
 
     /**
-     * The chart a country elevator of this size actually runs on.
+     * The chart a country elevator of this size actually runs on, as the accountant keeps it.
      *
      * <p>Short, and deliberately so. The headings exist because the year end is read by heading, and
      * the leaves exist because somebody eventually asks what the dryer earned as against what the gas
      * cost.
      */
+    public static final String STANDARD_CHART =
+            """
+            code | name                           | type      | under | closes to
+            1000 | Assets                         | asset     | -     | -
+            1100 | Cash in bank                   | asset     | 1000  | -
+            1200 | Grain inventory                | asset     | 1000  | -
+            1210 | Grain inventory, company owned | asset     | 1200  | -
+            1220 | Grain inventory, unpriced      | asset     | 1200  | -
+            1300 | Advances to producers          | asset     | 1000  | -
+            1400 | Accounts receivable            | asset     | 1000  | -
+            2000 | Liabilities                    | liability | -     | -
+            2100 | Grain payable to producers     | liability | 2000  | -
+            2200 | Checkoff payable               | liability | 2000  | -
+            2300 | Deferred payment contracts     | liability | 2000  | -
+            2400 | Storage billed in advance      | liability | 2000  | -
+            3000 | Equity                         | equity    | -     | -
+            3100 | Retained earnings              | equity    | 3000  | -
+            4000 | Revenue                        | revenue   | -     | -
+            4100 | Storage revenue                | revenue   | 4000  | -
+            4200 | Drying revenue                 | revenue   | 4000  | -
+            4300 | Handling and service           | revenue   | 4000  | -
+            4400 | Grain margin                   | revenue   | 4000  | -
+            4500 | Demurrage recovered            | revenue   | 4000  | -
+            5000 | Expense                        | expense   | -     | -
+            5100 | Freight paid                   | expense   | 5000  | -
+            5200 | Dryer fuel                     | expense   | 5000  | -
+            5300 | Shrink and handling loss       | expense   | 5000  | -
+            5400 | Interest on advances           | expense   | 5000  | -
+            """;
+
+    /** The standard chart, read off {@link #STANDARD_CHART}. */
     public static ChartOfAccounts standardChart() {
-        return new ChartOfAccounts(List.of(
-                Account.of("1000", "Assets", AccountType.ASSET),
-                Account.of("1100", "Cash in bank", AccountType.ASSET).withParent("1000"),
-                Account.of("1200", "Grain inventory", AccountType.ASSET).withParent("1000"),
-                Account.of("1210", "Grain inventory, company owned", AccountType.ASSET)
-                        .withParent("1200"),
-                Account.of("1220", "Grain inventory, unpriced", AccountType.ASSET)
-                        .withParent("1200"),
-                Account.of("1300", "Advances to producers", AccountType.ASSET).withParent("1000"),
-                Account.of("1400", "Accounts receivable", AccountType.ASSET).withParent("1000"),
-                Account.of("2000", "Liabilities", AccountType.LIABILITY),
-                Account.of("2100", "Grain payable to producers", AccountType.LIABILITY)
-                        .withParent("2000"),
-                Account.of("2200", "Checkoff payable", AccountType.LIABILITY).withParent("2000"),
-                Account.of("2300", "Deferred payment contracts", AccountType.LIABILITY)
-                        .withParent("2000"),
-                Account.of("2400", "Storage billed in advance", AccountType.LIABILITY)
-                        .withParent("2000"),
-                Account.of("3000", "Equity", AccountType.EQUITY),
-                Account.of("3100", "Retained earnings", AccountType.EQUITY).withParent("3000"),
-                Account.of("4000", "Revenue", AccountType.REVENUE),
-                Account.of("4100", "Storage revenue", AccountType.REVENUE).withParent("4000"),
-                Account.of("4200", "Drying revenue", AccountType.REVENUE).withParent("4000"),
-                Account.of("4300", "Handling and service", AccountType.REVENUE).withParent("4000"),
-                Account.of("4400", "Grain margin", AccountType.REVENUE).withParent("4000"),
-                Account.of("4500", "Demurrage recovered", AccountType.REVENUE).withParent("4000"),
-                Account.of("5000", "Expense", AccountType.EXPENSE),
-                Account.of("5100", "Freight paid", AccountType.EXPENSE).withParent("5000"),
-                Account.of("5200", "Dryer fuel", AccountType.EXPENSE).withParent("5000"),
-                Account.of("5300", "Shrink and handling loss", AccountType.EXPENSE)
-                        .withParent("5000"),
-                Account.of("5400", "Interest on advances", AccountType.EXPENSE).withParent("5000")));
+        return ChartOfAccounts.parse(STANDARD_CHART);
     }
 }
