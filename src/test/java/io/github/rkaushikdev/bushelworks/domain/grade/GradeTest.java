@@ -137,6 +137,82 @@ class GradeTest {
     }
 
     @Test
+    void theFiledCornTableReadsBackAsTheStandardsLadder() {
+        List<GradeRung> rungs = GradeTable.parse("CORN", Grading.CORN);
+        assertThat(rungs).isEqualTo(Grading.ladder("CORN"));
+        assertThat(rungs.get(0).limits().keySet())
+                .containsExactly(Factor.TEST_WEIGHT, Factor.DAMAGE_HEAT, Factor.DAMAGE_TOTAL, Factor.BCFM);
+        assertThat(rungs.get(2).limits()).containsEntry(Factor.TEST_WEIGHT, d("52.0"));
+        assertThat(rungs.get(4).limits()).containsEntry(Factor.BCFM, d("7.0"));
+    }
+
+    @Test
+    void everyFiledLadderLoosensFromTheTopDown() {
+        for (String code : List.of("CORN", "SOYB", "HRW", "MILO", "SUNF")) {
+            assertThat(Grading.ladder(code)).as(code).isNotEmpty();
+        }
+        assertThat(Grading.ladder("SUNF"))
+                .extracting(GradeRung::grade)
+                .containsExactly(NumericalGrade.US_1, NumericalGrade.US_2);
+    }
+
+    @Test
+    void aHouseCanFileItsOwnLadderAsText() {
+        Grading.registerLadder(
+                "WAXY",
+                """
+                # a processor's contract grades, test weight only on the top rung
+                grade  test_weight  damage_total
+                2      54.0         5.0
+                1      56.0         3.0
+                3      -            7.0
+                """);
+        List<GradeRung> rungs = Grading.ladder("WAXY");
+        assertThat(rungs)
+                .extracting(GradeRung::grade)
+                .containsExactly(NumericalGrade.US_1, NumericalGrade.US_2, NumericalGrade.US_3);
+        assertThat(rungs.get(2).limits()).containsOnlyKeys(Factor.DAMAGE_TOTAL);
+    }
+
+    @Test
+    void aLowerGradeStricterThanTheOneAboveIsATypingMistake() {
+        assertThatThrownBy(
+                        () -> GradeTable.parse(
+                                "CORN",
+                                """
+                        grade  test_weight  bcfm
+                        1      56.0         2.0
+                        2      57.0         3.0
+                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("US 2 is stricter than US 1 on test_weight");
+        assertThatThrownBy(
+                        () -> GradeTable.parse(
+                                "CORN",
+                                """
+                        grade  test_weight  bcfm
+                        1      56.0         3.0
+                        2      54.0         2.0
+                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("on bcfm");
+    }
+
+    @Test
+    void aTableThatCannotBeReadIsRefused() {
+        assertThatThrownBy(() -> GradeTable.parse("CORN", "grade  test_weight"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> GradeTable.parse("CORN", "factor  test_weight\n1  56.0"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("grade column");
+        assertThatThrownBy(() -> GradeTable.parse("CORN", "grade  test_weight  bcfm\n1  56.0"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1 limits for 2 factors");
+        assertThatThrownBy(() -> GradeTable.parse("CORN", "grade  colour\n1  56.0"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void unknownLadderRaises() {
         assertThatThrownBy(() -> Grading.ladder("BARLEY")).isInstanceOf(NoGradeTable.class);
     }

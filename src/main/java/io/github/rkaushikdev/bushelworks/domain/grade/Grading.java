@@ -6,7 +6,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,62 +28,62 @@ public final class Grading {
 
     private static final Map<String, List<GradeRung>> LADDERS = new ConcurrentHashMap<>();
 
+    /** Yellow corn: test weight is a floor, the rest are ceilings. */
+    static final String CORN =
+            """
+            grade  test_weight  damage_heat  damage_total  bcfm
+            1      56.0         0.1          3.0           2.0
+            2      54.0         0.2          5.0           3.0
+            3      52.0         0.5          7.0           4.0
+            4      49.0         1.0          10.0          5.0
+            5      46.0         3.0          15.0          7.0
+            """;
+
+    /** Yellow soybeans, which stop at No. 4. */
+    static final String SOYBEANS =
+            """
+            grade  test_weight  damage_heat  damage_total  foreign_material  splits
+            1      56.0         0.2          2.0           1.0               10.0
+            2      54.0         0.5          3.0           2.0               20.0
+            3      52.0         1.0          5.0           3.0               30.0
+            4      49.0         3.0          8.0           5.0               40.0
+            """;
+
+    /** Hard red winter wheat. */
+    static final String HRW_WHEAT =
+            """
+            grade  test_weight  damage_total  shrunken_broken  total_defects
+            1      60.0         2.0           3.0              3.0
+            2      58.0         4.0           5.0              5.0
+            3      56.0         7.0           8.0              8.0
+            4      54.0         10.0          12.0             12.0
+            5      51.0         15.0          20.0             20.0
+            """;
+
+    /** Grain sorghum. */
+    static final String GRAIN_SORGHUM =
+            """
+            grade  test_weight  damage_heat  damage_total  foreign_material
+            1      57.0         0.2          2.0           4.0
+            2      55.0         0.5          5.0           8.0
+            3      53.0         1.0          10.0          12.0
+            4      51.0         3.0          15.0          15.0
+            """;
+
+    /** Oil sunflower seed, graded on damage and foreign material alone. */
+    static final String SUNFLOWER =
+            """
+            grade  damage_total  foreign_material
+            1      5.0           3.0
+            2      10.0          6.0
+            """;
+
     static {
-        registerLadder(
-                "CORN",
-                List.of(
-                                rung(NumericalGrade.US_1, "56.0", "0.1", "3.0", "2.0"),
-                                rung(NumericalGrade.US_2, "54.0", "0.2", "5.0", "3.0"),
-                                rung(NumericalGrade.US_3, "52.0", "0.5", "7.0", "4.0"),
-                                rung(NumericalGrade.US_4, "49.0", "1.0", "10.0", "5.0"),
-                                rung(NumericalGrade.US_5, "46.0", "3.0", "15.0", "7.0"))
-                        .stream()
-                        .map(limits ->
-                                limits.named(Factor.TEST_WEIGHT, Factor.DAMAGE_HEAT, Factor.DAMAGE_TOTAL, Factor.BCFM))
-                        .toList());
-        registerLadder(
-                "SOYB",
-                List.of(
-                                rung(NumericalGrade.US_1, "56.0", "0.2", "2.0", "1.0", "10.0"),
-                                rung(NumericalGrade.US_2, "54.0", "0.5", "3.0", "2.0", "20.0"),
-                                rung(NumericalGrade.US_3, "52.0", "1.0", "5.0", "3.0", "30.0"),
-                                rung(NumericalGrade.US_4, "49.0", "3.0", "8.0", "5.0", "40.0"))
-                        .stream()
-                        .map(limits -> limits.named(
-                                Factor.TEST_WEIGHT,
-                                Factor.DAMAGE_HEAT,
-                                Factor.DAMAGE_TOTAL,
-                                Factor.FOREIGN_MATERIAL,
-                                Factor.SPLITS))
-                        .toList());
-        registerLadder(
-                "HRW",
-                List.of(
-                                rung(NumericalGrade.US_1, "60.0", "2.0", "3.0", "3.0"),
-                                rung(NumericalGrade.US_2, "58.0", "4.0", "5.0", "5.0"),
-                                rung(NumericalGrade.US_3, "56.0", "7.0", "8.0", "8.0"),
-                                rung(NumericalGrade.US_4, "54.0", "10.0", "12.0", "12.0"),
-                                rung(NumericalGrade.US_5, "51.0", "15.0", "20.0", "20.0"))
-                        .stream()
-                        .map(limits -> limits.named(
-                                Factor.TEST_WEIGHT, Factor.DAMAGE_TOTAL, Factor.SHRUNKEN_BROKEN, Factor.TOTAL_DEFECTS))
-                        .toList());
-        registerLadder(
-                "MILO",
-                List.of(
-                                rung(NumericalGrade.US_1, "57.0", "0.2", "2.0", "4.0"),
-                                rung(NumericalGrade.US_2, "55.0", "0.5", "5.0", "8.0"),
-                                rung(NumericalGrade.US_3, "53.0", "1.0", "10.0", "12.0"),
-                                rung(NumericalGrade.US_4, "51.0", "3.0", "15.0", "15.0"))
-                        .stream()
-                        .map(limits -> limits.named(
-                                Factor.TEST_WEIGHT, Factor.DAMAGE_HEAT, Factor.DAMAGE_TOTAL, Factor.FOREIGN_MATERIAL))
-                        .toList());
-        registerLadder(
-                "SUNF",
-                List.of(rung(NumericalGrade.US_1, "5.0", "3.0"), rung(NumericalGrade.US_2, "10.0", "6.0")).stream()
-                        .map(limits -> limits.named(Factor.DAMAGE_TOTAL, Factor.FOREIGN_MATERIAL))
-                        .toList());
+        registerLadder("CORN", CORN);
+        registerLadder("SOYB", SOYBEANS);
+        registerLadder("HRW", HRW_WHEAT);
+        registerLadder("MILO", GRAIN_SORGHUM);
+        registerLadder("SUNF", SUNFLOWER);
     }
 
     private Grading() {}
@@ -98,6 +97,11 @@ public final class Grading {
             throw new IllegalArgumentException(commodityCode + ": duplicate grade on the ladder");
         }
         LADDERS.put(commodityCode, List.copyOf(ordered));
+    }
+
+    /** Put a ladder on file for a commodity from a table written as the standard prints it. */
+    public static void registerLadder(String commodityCode, String table) {
+        registerLadder(commodityCode, GradeTable.parse(commodityCode, table));
     }
 
     /** The ladder for a commodity, best rung first. */
@@ -167,21 +171,5 @@ public final class Grading {
             }
         }
         throw new NoGradeTable(commodity.code() + " has no rung for grade " + target.value());
-    }
-
-    private static Limits rung(NumericalGrade grade, String... values) {
-        return new Limits(grade, values);
-    }
-
-    /** A rung's limits written as text, before the factors they belong to are named. */
-    private record Limits(NumericalGrade grade, String[] values) {
-
-        GradeRung named(Factor... factors) {
-            Map<Factor, BigDecimal> limits = new LinkedHashMap<>();
-            for (int index = 0; index < factors.length; index++) {
-                limits.put(factors[index], new BigDecimal(values[index]));
-            }
-            return new GradeRung(grade, limits);
-        }
     }
 }
