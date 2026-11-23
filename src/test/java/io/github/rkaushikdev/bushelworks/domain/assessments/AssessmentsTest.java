@@ -58,7 +58,7 @@ class AssessmentsTest {
         assertThatThrownBy(() -> AssessmentTable.parse(
                         "NCB | Corn | NCGA | CORN | * | per_bushel | nil | net_of_discounts | no"))
                 .isInstanceOf(AssessmentError.class)
-                .hasMessageContaining("'nil' is not a rate");
+                .hasMessageContaining("'nil' is not a number");
         assertThatThrownBy(() -> AssessmentTable.parse(
                         "NCB | Corn | NCGA | CORN | * | per_bushel | 0.01 | net_of_discounts | maybe"))
                 .isInstanceOf(AssessmentError.class)

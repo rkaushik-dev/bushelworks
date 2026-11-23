@@ -1,8 +1,7 @@
 package io.github.rkaushikdev.bushelworks.domain.assessments;
 
-import java.math.BigDecimal;
+import io.github.rkaushikdev.bushelworks.FiledSheet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -30,13 +29,8 @@ public final class AssessmentTable {
      */
     public static List<Assessment> parse(String sheet) {
         List<Assessment> levies = new ArrayList<>();
-        for (String raw : sheet.lines().toList()) {
-            String line = raw.strip();
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith("code ")) {
-                continue;
-            }
-            String[] cells =
-                    Arrays.stream(line.split("\\|", -1)).map(String::strip).toArray(String[]::new);
+        for (String line : FiledSheet.rows(sheet, "code")) {
+            String[] cells = FiledSheet.barred(line);
             if (cells.length != COLUMNS) {
                 throw new AssessmentError("a levy needs " + COLUMNS + " columns, not " + cells.length + ": " + line);
             }
@@ -45,21 +39,13 @@ public final class AssessmentTable {
                     cells[1],
                     cells[2],
                     cells[3],
-                    rate(cells[6], line),
+                    FiledSheet.number(cells[6], line, AssessmentError::new),
                     AssessmentBasis.of(cells[5]),
                     ValueBasis.of(cells[7]),
                     refundable(cells[8], line),
                     cells[4]));
         }
         return List.copyOf(levies);
-    }
-
-    private static BigDecimal rate(String cell, String line) {
-        try {
-            return new BigDecimal(cell);
-        } catch (NumberFormatException refused) {
-            throw new AssessmentError("'" + cell + "' is not a rate: " + line);
-        }
     }
 
     private static boolean refundable(String cell, String line) {

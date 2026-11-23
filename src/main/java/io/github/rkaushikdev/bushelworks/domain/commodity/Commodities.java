@@ -1,8 +1,7 @@
 package io.github.rkaushikdev.bushelworks.domain.commodity;
 
-import java.math.BigDecimal;
+import io.github.rkaushikdev.bushelworks.FiledSheet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -68,13 +67,8 @@ public final class Commodities {
     public static List<Commodity> parse(String sheet) {
         List<Commodity> rows = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (String raw : sheet.lines().toList()) {
-            String line = raw.strip();
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith("code ")) {
-                continue;
-            }
-            String[] cells =
-                    Arrays.stream(line.split("\\|", -1)).map(String::strip).toArray(String[]::new);
+        for (String line : FiledSheet.rows(sheet, "code")) {
+            String[] cells = FiledSheet.barred(line);
             if (cells.length != COLUMNS) {
                 throw new IllegalArgumentException(
                         "a commodity row needs " + COLUMNS + " columns, not " + cells.length + ": " + line);
@@ -85,8 +79,8 @@ public final class Commodities {
             rows.add(new Commodity(
                     cells[0],
                     cells[1],
-                    new BigDecimal(cells[2]),
-                    new BigDecimal(cells[3]),
+                    FiledSheet.number(cells[2], line, IllegalArgumentException::new),
+                    FiledSheet.number(cells[3], line, IllegalArgumentException::new),
                     PriceUnit.of(cells[4]),
                     factors(cells[5]),
                     optional(factors(cells[6]))));
@@ -95,11 +89,11 @@ public final class Commodities {
     }
 
     private static Set<Factor> factors(String cell) {
-        if (cell.equals("-")) {
+        if (cell.equals(FiledSheet.NOTHING)) {
             return Set.of();
         }
         Set<Factor> named = EnumSet.noneOf(Factor.class);
-        for (String value : cell.split("\\s+")) {
+        for (String value : FiledSheet.spaced(cell)) {
             named.add(Factor.of(value));
         }
         return named;

@@ -1,5 +1,6 @@
 package io.github.rkaushikdev.bushelworks.domain.grade;
 
+import io.github.rkaushikdev.bushelworks.FiledSheet;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
 import io.github.rkaushikdev.bushelworks.domain.commodity.FactorDirection;
 import java.math.BigDecimal;
@@ -8,6 +9,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * A grade ladder written the way the standard prints it: a heading of factors and a line a grade.
@@ -26,7 +28,6 @@ import java.util.Map;
 public final class GradeTable {
 
     private static final String GRADE_COLUMN = "grade";
-    private static final String NOT_LOOKED_AT = "-";
 
     private GradeTable() {}
 
@@ -37,11 +38,8 @@ public final class GradeTable {
      *     read or a lower grade is stricter than a higher one
      */
     public static List<GradeRung> parse(String commodityCode, String table) {
-        List<String[]> lines = table.lines()
-                .map(String::strip)
-                .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                .map(line -> line.split("\\s+"))
-                .toList();
+        List<String> rows = FiledSheet.rows(table);
+        List<String[]> lines = rows.stream().map(FiledSheet::spaced).toList();
         if (lines.size() < 2) {
             throw new IllegalArgumentException(commodityCode + ": a grade table needs a heading and a rung");
         }
@@ -54,21 +52,26 @@ public final class GradeTable {
             factors.add(Factor.of(heading[column]));
         }
         List<GradeRung> rungs = new ArrayList<>();
-        for (String[] cells : lines.subList(1, lines.size())) {
+        for (int row = 1; row < lines.size(); row++) {
+            String[] cells = lines.get(row);
             if (cells.length != heading.length) {
                 throw new IllegalArgumentException(commodityCode + ": the line for grade " + cells[0] + " has "
                         + (cells.length - 1) + " limits for " + factors.size() + " factors");
             }
             Map<Factor, BigDecimal> limits = new LinkedHashMap<>();
             for (int column = 1; column < cells.length; column++) {
-                if (!cells[column].equals(NOT_LOOKED_AT)) {
-                    limits.put(factors.get(column - 1), new BigDecimal(cells[column]));
-                }
+                Factor factor = factors.get(column - 1);
+                FiledSheet.numberOrNothing(cells[column], rows.get(row), refusal(commodityCode))
+                        .ifPresent(limit -> limits.put(factor, limit));
             }
             rungs.add(new GradeRung(NumericalGrade.of(cells[0]), limits));
         }
         checkLoosening(commodityCode, rungs);
         return List.copyOf(rungs);
+    }
+
+    private static Function<String, IllegalArgumentException> refusal(String commodityCode) {
+        return sentence -> new IllegalArgumentException(commodityCode + ": " + sentence);
     }
 
     /** Each rung has to let in at least what the rung above it lets in, factor by factor. */

@@ -1,11 +1,9 @@
 package io.github.rkaushikdev.bushelworks.domain.discounts;
 
+import io.github.rkaushikdev.bushelworks.FiledSheet;
 import io.github.rkaushikdev.bushelworks.domain.commodity.Factor;
-import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * A discount board written the way it hangs by the scale window: a line a band.
@@ -25,7 +23,6 @@ import java.util.Optional;
 public final class DiscountTable {
 
     private static final String HEADING = "commodity";
-    private static final String RUNS_ON = "-";
     private static final int COLUMNS = 8;
 
     private DiscountTable() {}
@@ -42,12 +39,8 @@ public final class DiscountTable {
         String commodity = null;
         Factor factor = null;
         String label = null;
-        for (String raw : board.lines().toList()) {
-            String line = raw.strip();
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith(HEADING + " ")) {
-                continue;
-            }
-            String[] cells = line.split("\\s+", COLUMNS);
+        for (String line : FiledSheet.rows(board, HEADING)) {
+            String[] cells = FiledSheet.spaced(line, COLUMNS);
             if (cells.length < COLUMNS - 1) {
                 throw new ScheduleError("a discount board line needs " + (COLUMNS - 1) + " columns: " + line);
             }
@@ -66,7 +59,7 @@ public final class DiscountTable {
                 throw new ScheduleError(
                         code + "/" + read.value() + ": one band says '" + label + "' and the next '" + named + "'");
             }
-            bands.add(band(cells));
+            bands.add(band(cells, line));
         }
         if (!bands.isEmpty()) {
             schedules.add(new DiscountSchedule(commodity, factor, bands, label));
@@ -74,17 +67,12 @@ public final class DiscountTable {
         return List.copyOf(schedules);
     }
 
-    private static DiscountBand band(String[] cells) {
-        Optional<BigDecimal> end = cells[3].equals(RUNS_ON) ? Optional.empty() : Optional.of(number(cells, 3));
-        return new DiscountBand(number(cells, 2), number(cells, 4), number(cells, 5), DiscountMode.of(cells[6]), end);
-    }
-
-    private static BigDecimal number(String[] cells, int column) {
-        try {
-            return new BigDecimal(cells[column]);
-        } catch (NumberFormatException refused) {
-            throw new ScheduleError(
-                    "'" + cells[column] + "' is not a number on the line " + String.join(" ", Arrays.asList(cells)));
-        }
+    private static DiscountBand band(String[] cells, String line) {
+        return new DiscountBand(
+                FiledSheet.number(cells[2], line, ScheduleError::new),
+                FiledSheet.number(cells[4], line, ScheduleError::new),
+                FiledSheet.number(cells[5], line, ScheduleError::new),
+                DiscountMode.of(cells[6]),
+                FiledSheet.numberOrNothing(cells[3], line, ScheduleError::new));
     }
 }
