@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.time.MonthDay;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -100,6 +101,74 @@ class StorageTest {
     @Test
     void aNegativeRateIsRefused() {
         assertThatThrownBy(() -> StorageRate.of("CORN", d("-0.01"))).isInstanceOf(StorageError.class);
+    }
+
+    static final StorageRate FLAT_TO_JUNE = StorageRate.of("CORN", d("0.0300"))
+            .withFreeDays(15)
+            .withSeasonalFlat(new SeasonalFlat(d("0.2500"), MonthDay.of(6, 30)));
+
+    @Test
+    void aFlatPeriodRunsToTheNextJuneThirty() {
+        SeasonalFlat flat = new SeasonalFlat(d("0.2500"), MonthDay.of(6, 30));
+        assertThat(flat.coversThrough(RECEIVED)).isEqualTo(day(2025, 6, 30));
+        assertThat(flat.coversThrough(day(2024, 7, 12))).isEqualTo(day(2025, 6, 30));
+        assertThat(flat.coversThrough(day(2024, 6, 30))).isEqualTo(day(2024, 6, 30));
+        assertThat(flat.coversThrough(day(2024, 3, 1))).isEqualTo(day(2024, 6, 30));
+    }
+
+    @Test
+    void aFlatChargeIsOwedOnceTheFreeDaysAreGone() {
+        assertThat(FLAT_TO_JUNE.charge(d("10000"), RECEIVED, day(2024, 10, 30))).isEqualTo(d("0.00"));
+        assertThat(FLAT_TO_JUNE.charge(d("10000"), RECEIVED, day(2024, 10, 31))).isEqualTo(d("2500.00"));
+        assertThat(FLAT_TO_JUNE.charge(d("10000"), RECEIVED, day(2025, 6, 30))).isEqualTo(d("2500.00"));
+    }
+
+    @Test
+    void storagePastTheFlatPeriodAccruesByTheMonth() {
+        assertThat(FLAT_TO_JUNE.chargeableMonths(RECEIVED, day(2025, 6, 30))).isEqualByComparingTo(d("0"));
+        assertThat(FLAT_TO_JUNE.chargeableMonths(RECEIVED, day(2025, 7, 30))).isEqualByComparingTo(d("1"));
+        // the flat plus a month at three cents
+        assertThat(FLAT_TO_JUNE.charge(d("10000"), RECEIVED, day(2025, 7, 30))).isEqualTo(d("2800.00"));
+    }
+
+    @Test
+    void theAccrualMethodCountsTheMonthsAfterTheFlat() {
+        StorageRate calendar = FLAT_TO_JUNE.withMethod(AccrualMethod.CALENDAR);
+        assertThat(calendar.chargeableMonths(RECEIVED, day(2025, 7, 1))).isEqualByComparingTo(d("2"));
+        StorageRate anniversary = FLAT_TO_JUNE.withMethod(AccrualMethod.ANNIVERSARY);
+        assertThat(anniversary.chargeableMonths(RECEIVED, day(2025, 7, 1))).isEqualByComparingTo(d("1"));
+    }
+
+    @Test
+    void theMinimumIsAFloorUnderTheFlatAndTheMonthsTogether() {
+        StorageRate rate = FLAT_TO_JUNE.withMinimumCharge(d("50.00"));
+        assertThat(rate.charge(d("100"), RECEIVED, day(2024, 12, 1))).isEqualTo(d("50.00"));
+        assertThat(rate.charge(d("1000"), RECEIVED, day(2024, 12, 1))).isEqualTo(d("250.00"));
+    }
+
+    @Test
+    void theFlatGoesOnTheFirstRunThatOwesAnything() {
+        assertThat(FLAT_TO_JUNE.chargeBetween(d("10000"), RECEIVED, Optional.empty(), day(2024, 12, 31)))
+                .isEqualTo(d("2500.00"));
+        assertThat(FLAT_TO_JUNE.chargeBetween(d("10000"), RECEIVED, Optional.of(day(2024, 10, 20)), day(2024, 12, 31)))
+                .isEqualTo(d("2500.00"));
+        assertThat(FLAT_TO_JUNE.chargeBetween(d("10000"), RECEIVED, Optional.of(day(2024, 12, 31)), day(2025, 3, 31)))
+                .isEqualTo(d("0.00"));
+    }
+
+    @Test
+    void aRunAcrossTheEndOfTheFlatChargesOnlyTheDaysAfterIt() {
+        assertThat(FLAT_TO_JUNE.chargeBetween(d("10000"), RECEIVED, Optional.of(day(2025, 6, 15)), day(2025, 7, 15)))
+                .isEqualTo(d("150.00"));
+        assertThat(FLAT_TO_JUNE.chargeBetween(d("6000"), RECEIVED, Optional.of(day(2025, 7, 15)), day(2025, 8, 14)))
+                .isEqualTo(d("180.00"));
+    }
+
+    @Test
+    void aFlatChargeOfNothingIsRefused() {
+        assertThatThrownBy(() -> new SeasonalFlat(d("0"), MonthDay.of(6, 30))).isInstanceOf(StorageError.class);
+        assertThat(DAILY.flatCharge(d("10000"), RECEIVED, day(2025, 7, 30))).isEqualTo(d("0.00"));
+        assertThat(DAILY.seasonalFlat()).isEmpty();
     }
 
     @Test
