@@ -11,8 +11,6 @@ import java.util.Map;
 /** Every truck the house knows about. */
 public final class Fleet {
 
-    private static final BigDecimal DRIFT_THRESHOLD = new BigDecimal("2000");
-
     private final Map<String, Truck> trucks = new LinkedHashMap<>();
 
     public void add(Truck truck) {
@@ -55,16 +53,13 @@ public final class Fleet {
         return active().stream().filter(truck -> truck.tareIsStale(day)).toList();
     }
 
-    /** Trucks whose tare has moved two thousand pounds or more. */
+    /** Trucks whose tare has moved as far as their rig allows, or further. */
     public List<Truck> drifting() {
-        return drifting(DRIFT_THRESHOLD);
+        return active().stream().filter(Truck::isDrifting).toList();
     }
 
+    /** Trucks whose tare has moved {@code threshold} pounds or more, whatever their rig. */
     public List<Truck> drifting(BigDecimal threshold) {
-        return active().stream()
-                .filter(truck -> truck.drift()
-                        .filter(drift -> drift.abs().compareTo(threshold) >= 0)
-                        .isPresent())
-                .toList();
+        return active().stream().filter(truck -> truck.isDrifting(threshold)).toList();
     }
 }

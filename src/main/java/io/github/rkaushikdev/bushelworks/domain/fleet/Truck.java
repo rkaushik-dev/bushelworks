@@ -21,6 +21,7 @@ import java.util.Optional;
  * @param isCompany whether it is the house's own
  * @param tares every empty weighing, in the order they were taken
  * @param retiredOn when it stopped coming, if it has
+ * @param rig what kind of outfit it is, which decides the tares it can plausibly weigh
  */
 public record Truck(
         String truckId,
@@ -28,10 +29,12 @@ public record Truck(
         String description,
         boolean isCompany,
         List<Tare> tares,
-        Optional<LocalDate> retiredOn) {
+        Optional<LocalDate> retiredOn,
+        Rig rig) {
 
     public Truck {
         Objects.requireNonNull(truckId, "truckId");
+        Objects.requireNonNull(rig, "rig");
         Objects.requireNonNull(partyCode, "partyCode");
         Objects.requireNonNull(description, "description");
         Objects.requireNonNull(retiredOn, "retiredOn");
@@ -42,11 +45,26 @@ public record Truck(
         if (partyCode.isEmpty()) {
             throw new FleetError(truckId + ": a truck belongs to somebody");
         }
+        for (Tare tare : tares) {
+            checkPlausible(truckId, rig, tare);
+        }
     }
 
-    /** A producer's truck with no tare on file. */
+    /** A producer's hopper bottom with no tare on file. */
     public static Truck of(String truckId, String partyCode, String description) {
-        return new Truck(truckId, partyCode, description, false, List.of(), Optional.empty());
+        return of(truckId, partyCode, description, Rig.HOPPER_BOTTOM);
+    }
+
+    /** A producer's truck of a given rig, with no tare on file. */
+    public static Truck of(String truckId, String partyCode, String description, Rig rig) {
+        return new Truck(truckId, partyCode, description, false, List.of(), Optional.empty(), rig);
+    }
+
+    private static void checkPlausible(String truckId, Rig rig, Tare tare) {
+        if (!rig.isPlausibleTare(tare.pounds())) {
+            throw new FleetError(truckId + ": a tare of " + tare.pounds() + " lb is not a " + rig.value()
+                    + ", which weighs " + rig.lightest() + " to " + rig.heaviest() + " empty");
+        }
     }
 
     public boolean isRetired() {
@@ -76,16 +94,17 @@ public record Truck(
         if (tares.stream().anyMatch(item -> item.weighedOn().equals(tare.weighedOn()))) {
             throw new ConflictError(truckId + " was already weighed empty on " + tare.weighedOn());
         }
+        checkPlausible(truckId, rig, tare);
         List<Tare> more = new ArrayList<>(tares);
         more.add(tare);
-        return new Truck(truckId, partyCode, description, isCompany, more, retiredOn);
+        return new Truck(truckId, partyCode, description, isCompany, more, retiredOn, rig);
     }
 
     public Truck retire(LocalDate on) {
         if (isRetired()) {
             throw new ConflictError(truckId + " is already retired");
         }
-        return new Truck(truckId, partyCode, description, isCompany, tares, Optional.of(on));
+        return new Truck(truckId, partyCode, description, isCompany, tares, Optional.of(on), rig);
     }
 
     /**
@@ -101,5 +120,14 @@ public record Truck(
         List<Tare> ordered = tares.stream().sorted(BY_DAY).toList();
         return Optional.of(
                 ordered.get(ordered.size() - 1).pounds().subtract(ordered.get(0).pounds()));
+    }
+
+    /** Whether the tare has moved as far as this rig's threshold, either way. */
+    public boolean isDrifting() {
+        return isDrifting(rig.driftThreshold());
+    }
+
+    public boolean isDrifting(BigDecimal threshold) {
+        return drift().filter(moved -> moved.abs().compareTo(threshold) >= 0).isPresent();
     }
 }

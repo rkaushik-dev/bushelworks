@@ -189,6 +189,65 @@ class FleetTest {
     }
 
     @Test
+    void eachRigHasItsOwnPlausibleRange() {
+        assertThat(Rig.SINGLE_AXLE.isPlausibleTare(d("11200"))).isTrue();
+        assertThat(Rig.HOPPER_BOTTOM.isPlausibleTare(d("11200"))).isFalse();
+        assertThat(Rig.HOPPER_BOTTOM.isPlausibleTare(d("18000"))).isTrue();
+        assertThat(Rig.HOPPER_BOTTOM.isPlausibleTare(d("36000"))).isTrue();
+        assertThat(Rig.HOPPER_BOTTOM.isPlausibleTare(d("36001"))).isFalse();
+        assertThat(Rig.TRACTOR_AND_WAGONS.isPlausibleTare(d("38500"))).isTrue();
+    }
+
+    @Test
+    void aTareIsRefusedOnlyWhenNoRigCouldWeighIt() {
+        assertThat(Rig.lightestOfAll()).isEqualByComparingTo(d("7000"));
+        assertThat(Rig.heaviestOfAll()).isEqualByComparingTo(d("40000"));
+        assertThat(aTare("7000", WEIGHED).pounds()).isEqualByComparingTo(d("7000"));
+        assertThatThrownBy(() -> aTare("6999", WEIGHED)).isInstanceOf(FleetError.class);
+        assertThatThrownBy(() -> aTare("40001", WEIGHED)).isInstanceOf(FleetError.class);
+    }
+
+    @Test
+    void aFarmTruckTareOnASemiIsAKeyingMistake() {
+        Truck semi = aTruck();
+        assertThatThrownBy(() -> semi.weighEmpty(aTare("11200", WEIGHED)))
+                .isInstanceOf(FleetError.class)
+                .hasMessageContaining("hopper_bottom");
+        Truck farmTruck = Truck.of("T-3", "MERRICK", "Chevy C60", Rig.SINGLE_AXLE);
+        assertThat(farmTruck.weighEmpty(aTare("11200", WEIGHED)).latestTare().map(Tare::pounds))
+                .contains(d("11200"));
+    }
+
+    @Test
+    void aTruckIsRefusedATareOnFileThatItsRigCouldNotWeigh() {
+        assertThatThrownBy(() -> new Truck(
+                        "T-3", "MERRICK", "Chevy C60", false, List.of(aTare()), Optional.empty(), Rig.SINGLE_AXLE))
+                .isInstanceOf(FleetError.class);
+    }
+
+    @Test
+    void aTruckIsAHopperBottomUnlessTold() {
+        assertThat(aTruck().rig()).isEqualTo(Rig.HOPPER_BOTTOM);
+        assertThat(aTruck().retire(HARVEST).rig()).isEqualTo(Rig.HOPPER_BOTTOM);
+        assertThat(Rig.of("tandem_straight")).isEqualTo(Rig.TANDEM_STRAIGHT);
+    }
+
+    @Test
+    void aSmallTruckDriftsSoonerThanASemi() {
+        Truck farmTruck = Truck.of("T-3", "MERRICK", "Chevy C60", Rig.SINGLE_AXLE)
+                .weighEmpty(aTare("11200", WEIGHED))
+                .weighEmpty(aTare("12400", LocalDate.of(2024, 10, 1)));
+        Truck semi = aTruck().weighEmpty(aTare()).weighEmpty(aTare("27380", LocalDate.of(2024, 10, 1)));
+        Fleet fleet = new Fleet();
+        fleet.add(farmTruck);
+        fleet.add(semi);
+        assertThat(fleet.drifting()).extracting(Truck::truckId).containsExactly("T-3");
+        assertThat(fleet.drifting(d("1000"))).extracting(Truck::truckId).containsExactly("T-14", "T-3");
+        assertThat(semi.isDrifting()).isFalse();
+        assertThat(semi.isDrifting(d("1200"))).isTrue();
+    }
+
+    @Test
     void theAverageTareOfNothingIsNothing() {
         assertThat(Tare.average(List.of())).isEmpty();
     }

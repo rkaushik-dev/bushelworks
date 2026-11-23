@@ -15,6 +15,7 @@ import java.util.Optional;
  * <p>A tare is not a property of a truck. It is a property of a truck on a day: an empty hopper
  * weighs different amounts wet and dry, with and without a tarp, with and without the driver in the
  * cab. So a stored tare has a date on it and an age, and the scale house is told when it is stale.
+ * What range of pounds is believable depends on the {@link Rig}.
  *
  * @param pounds what the empty truck weighed
  * @param weighedOn when
@@ -25,17 +26,17 @@ public record Tare(BigDecimal pounds, LocalDate weighedOn, Optional<String> tick
     /** How long a stored tare is trusted, in days. Past this the truck is weighed empty again. */
     public static final int TARE_LIFE_DAYS = 30;
 
-    /** The lightest plausible empty hopper bottom. Anything far outside is a keying mistake. */
-    public static final BigDecimal PLAUSIBLE_LOW = new BigDecimal("18000");
-
-    /** The heaviest plausible empty hopper bottom. */
-    public static final BigDecimal PLAUSIBLE_HIGH = new BigDecimal("36000");
-
+    /**
+     * A tare is refused outright only when no rig could weigh it. Whether it suits the truck it was
+     * taken of is the truck's question, asked when the tare goes on file.
+     */
     public Tare {
         Objects.requireNonNull(weighedOn, "weighedOn");
         Objects.requireNonNull(ticketNumber, "ticketNumber");
-        if (pounds.compareTo(PLAUSIBLE_LOW) < 0 || pounds.compareTo(PLAUSIBLE_HIGH) > 0) {
-            throw new FleetError("a tare of " + pounds + " lb is outside " + PLAUSIBLE_LOW + " to " + PLAUSIBLE_HIGH);
+        BigDecimal lightest = Rig.lightestOfAll();
+        BigDecimal heaviest = Rig.heaviestOfAll();
+        if (pounds.compareTo(lightest) < 0 || pounds.compareTo(heaviest) > 0) {
+            throw new FleetError("a tare of " + pounds + " lb is outside " + lightest + " to " + heaviest);
         }
     }
 
