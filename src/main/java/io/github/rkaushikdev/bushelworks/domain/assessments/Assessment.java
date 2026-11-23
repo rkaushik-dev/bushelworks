@@ -2,6 +2,8 @@ package io.github.rkaushikdev.bushelworks.domain.assessments;
 
 import io.github.rkaushikdev.bushelworks.Decimals;
 import io.github.rkaushikdev.bushelworks.Money;
+import io.github.rkaushikdev.bushelworks.Units;
+import io.github.rkaushikdev.bushelworks.domain.commodity.Commodities;
 import java.math.BigDecimal;
 import java.util.Objects;
 
@@ -87,10 +89,20 @@ public record Assessment(
 
     /** The dollars to withhold from this settlement for this levy. */
     public BigDecimal withhold(BigDecimal bushels, BigDecimal grossValue, BigDecimal netValue) {
-        if (basis == AssessmentBasis.PER_BUSHEL) {
-            return Money.extend(bushels, rate);
-        }
-        BigDecimal base = valueBasis == ValueBasis.GROSS ? grossValue : netValue;
+        return switch (basis) {
+            case PER_BUSHEL -> Money.extend(bushels, rate);
+            case PER_HUNDREDWEIGHT -> Money.extend(hundredweight(bushels), rate);
+            case PERCENT_OF_VALUE -> percentOf(valueBasis == ValueBasis.GROSS ? grossValue : netValue);
+        };
+    }
+
+    /** Bushels as hundredweight, at the commodity's standard test weight. */
+    public BigDecimal hundredweight(BigDecimal bushels) {
+        BigDecimal pounds = bushels.multiply(Commodities.get(commodityCode).standardTestWeight());
+        return Units.quantize(Decimals.divide(pounds, Units.POUNDS_PER_CWT), Units.CWT_PLACES);
+    }
+
+    private BigDecimal percentOf(BigDecimal base) {
         if (base.signum() <= 0) {
             return Money.amount("0.00");
         }

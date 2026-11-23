@@ -93,35 +93,19 @@ public final class AssessmentBook {
         return all.stream().map(Assessment::code).distinct().sorted().toList();
     }
 
+    /** The rate sheet for the levies this house collects in Kansas and Nebraska. */
+    public static final String STANDARD_SHEET =
+            """
+            code    | name                    | authority                          | commodity | state | basis            | rate   | on               | refundable
+            NCB     | National Corn Checkoff  | National Corn Growers              | CORN      | *     | per_bushel       | 0.0000 | net_of_discounts | no
+            KSCORN  | Kansas Corn Commission  | Kansas Department of Agriculture   | CORN      | KS    | per_bushel       | 0.0100 | net_of_discounts | yes
+            NECORN  | Nebraska Corn Board     | Nebraska Department of Agriculture | CORN      | NE    | per_bushel       | 0.0050 | net_of_discounts | no
+            USB     | United Soybean Board    | USDA                               | SOYB      | *     | percent_of_value | 0.5    | net_of_discounts | no
+            KSWHEAT | Kansas Wheat Commission | Kansas Department of Agriculture   | HRW       | KS    | per_bushel       | 0.0200 | net_of_discounts | no
+            """;
+
     /** The levies this house collects in Kansas and Nebraska. */
     public static AssessmentBook standard() {
-        return new AssessmentBook(List.of(
-                Assessment.of(
-                        "NCB", "National Corn Checkoff", "National Corn Growers", "CORN", new BigDecimal("0.0000")),
-                Assessment.of(
-                                "KSCORN",
-                                "Kansas Corn Commission",
-                                "Kansas Department of Agriculture",
-                                "CORN",
-                                new BigDecimal("0.0100"))
-                        .withStateCode("KS")
-                        .withRefundable(true),
-                Assessment.of(
-                                "NECORN",
-                                "Nebraska Corn Board",
-                                "Nebraska Department of Agriculture",
-                                "CORN",
-                                new BigDecimal("0.0050"))
-                        .withStateCode("NE"),
-                Assessment.of("USB", "United Soybean Board", "USDA", "SOYB", new BigDecimal("0.5"))
-                        .withBasis(AssessmentBasis.PERCENT_OF_VALUE)
-                        .withValueBasis(ValueBasis.NET_OF_DISCOUNTS),
-                Assessment.of(
-                                "KSWHEAT",
-                                "Kansas Wheat Commission",
-                                "Kansas Department of Agriculture",
-                                "HRW",
-                                new BigDecimal("0.0200"))
-                        .withStateCode("KS")));
+        return new AssessmentBook(AssessmentTable.parse(STANDARD_SHEET));
     }
 }

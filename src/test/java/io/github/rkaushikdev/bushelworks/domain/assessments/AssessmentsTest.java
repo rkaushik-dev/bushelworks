@@ -26,6 +26,47 @@ class AssessmentsTest {
     }
 
     @Test
+    void aSeedLevyIsTakenByTheHundredweight() {
+        Assessment levy = Assessment.of("SUNCHK", "Sunflower Checkoff", "Oilseed Council", "SUNF", d("0.0150"))
+                .withBasis(AssessmentBasis.PER_HUNDREDWEIGHT);
+        // 1,744.40 bushels at 25 lb is 43,610 lb, or 436.10 hundredweight
+        assertThat(levy.hundredweight(d("1744.4000"))).isEqualTo(d("436.10"));
+        assertThat(levy.withhold(d("1744.4000"), d("9000.00"), d("8800.00"))).isEqualTo(d("6.54"));
+        assertThat(AssessmentBasis.of("per_hundredweight")).isSameAs(AssessmentBasis.PER_HUNDREDWEIGHT);
+    }
+
+    @Test
+    void theStandardSheetReadsAsTheLeviesTheHouseCollects() {
+        AssessmentBook book = AssessmentBook.standard();
+        assertThat(book.codes()).containsExactly("KSCORN", "KSWHEAT", "NCB", "NECORN", "USB");
+        Assessment kansas = book.applicable("CORN", "KS").stream()
+                .filter(one -> one.code().equals("KSCORN"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(kansas.refundable()).isTrue();
+        assertThat(kansas.rate()).isEqualTo(d("0.0100"));
+        assertThat(kansas.authority()).isEqualTo("Kansas Department of Agriculture");
+        assertThat(codes(book.applicable("SOYB", "NE"))).containsExactly("USB");
+        assertThat(book.applicable("SOYB", "KS").get(0).basis()).isSameAs(AssessmentBasis.PERCENT_OF_VALUE);
+    }
+
+    @Test
+    void aSheetLineThatCannotBeReadIsRefused() {
+        assertThatThrownBy(() -> AssessmentTable.parse("NCB | Corn | NCGA | CORN | * | per_bushel | 0.0000"))
+                .isInstanceOf(AssessmentError.class)
+                .hasMessageContaining("9 columns");
+        assertThatThrownBy(() -> AssessmentTable.parse(
+                        "NCB | Corn | NCGA | CORN | * | per_bushel | nil | net_of_discounts | no"))
+                .isInstanceOf(AssessmentError.class)
+                .hasMessageContaining("'nil' is not a rate");
+        assertThatThrownBy(() -> AssessmentTable.parse(
+                        "NCB | Corn | NCGA | CORN | * | per_bushel | 0.01 | net_of_discounts | maybe"))
+                .isInstanceOf(AssessmentError.class)
+                .hasMessageContaining("yes or no");
+        assertThat(AssessmentTable.parse("# nothing collected here")).isEmpty();
+    }
+
+    @Test
     void percentLevyUsesTheNetValueByDefault() {
         assertThat(usb().withhold(d("800"), d("9000.00"), d("8800.00"))).isEqualTo(d("44.00"));
     }
