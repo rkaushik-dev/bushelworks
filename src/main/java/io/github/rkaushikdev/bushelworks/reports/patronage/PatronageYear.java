@@ -128,35 +128,56 @@ public record PatronageYear(String locationCode, LocalDate opens, LocalDate clos
         return share(sumOfBushels(head(byBushels(), count)), bushels());
     }
 
-    /**
-     * Split a patronage pool across the members by their bushels, in member order.
-     *
-     * <p>Each share is rounded to the cent, and whatever rounding leaves over goes to the member with
-     * the most bushels, because it has to go somewhere and that is where it is least visible. A year
-     * with no member bushels splits the pool nowhere.
-     */
+    /** Split a patronage pool across the members by their bushels, in member order. */
     public Map<String, BigDecimal> allocations(BigDecimal pool) {
+        return allocations(pool, AllocationBasis.BUSHELS);
+    }
+
+    /**
+     * Split a patronage pool across the members on {@code basis}, in member order.
+     *
+     * <p>Each share is rounded to the cent, and whatever rounding leaves over goes to the member who
+     * weighs the most, because it has to go somewhere and that is where it is least visible. A year
+     * in which no member weighs anything splits the pool nowhere.
+     */
+    public Map<String, BigDecimal> allocations(BigDecimal pool, AllocationBasis basis) {
         BigDecimal whole = Money.amount(pool);
         List<PatronageLine> members = members();
-        BigDecimal base = sumOfBushels(members);
+        BigDecimal base = BigDecimal.ZERO;
+        for (PatronageLine line : members) {
+            base = base.add(basis.weightOf(line));
+        }
         if (base.signum() <= 0) {
             return Map.of();
         }
         Map<String, BigDecimal> split = new LinkedHashMap<>();
         BigDecimal allocated = BigDecimal.ZERO;
         for (PatronageLine line : members) {
-            BigDecimal share = Money.amount(Decimals.divide(whole.multiply(line.bushels()), base));
+            BigDecimal share = Money.amount(Decimals.divide(whole.multiply(basis.weightOf(line)), base));
             split.put(line.partyCode(), share);
             allocated = allocated.add(share);
         }
         BigDecimal drift = whole.subtract(allocated);
         if (drift.signum() != 0) {
-            PatronageLine biggest = members.stream()
-                    .max(Comparator.comparing(PatronageLine::bushels).thenComparing(PatronageLine::partyCode))
+            PatronageLine heaviest = members.stream()
+                    .max(Comparator.comparing(basis::weightOf).thenComparing(PatronageLine::partyCode))
                     .orElseThrow();
-            split.computeIfPresent(biggest.partyCode(), (code, share) -> Money.amount(share.add(drift)));
+            split.computeIfPresent(heaviest.partyCode(), (code, share) -> Money.amount(share.add(drift)));
         }
         return Ordered.copyOf(split);
+    }
+
+    /**
+     * Each member's refund out of a pool, allocated on {@code basis} and split between cash and
+     * retained equity at {@code cashPercent}, in member order.
+     *
+     * @throws PatronageError when the notices are qualified and the cash is under a fifth
+     */
+    public List<PatronageRefund> refunds(
+            BigDecimal pool, AllocationBasis basis, NoticeKind notice, BigDecimal cashPercent) {
+        return allocations(pool, basis).entrySet().stream()
+                .map(share -> PatronageRefund.of(share.getKey(), notice, share.getValue(), cashPercent))
+                .toList();
     }
 
     /** {@code part} as a percentage of {@code total} at four places; nothing of a total of nothing. */

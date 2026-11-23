@@ -218,6 +218,59 @@ class PatronageTest {
     }
 
     @Test
+    void aPoolCanBeAllocatedOnTheMarginEachMemberLeft() {
+        PatronageYear year = aYear(
+                aLine().bushels(d("300000")).charges(d("1000.00")),
+                aLine().partyCode("HOLLIS").bushels(d("60000")).charges(d("3000.00")));
+        assertThat(year.allocations(d("4000.00"), AllocationBasis.MARGIN))
+                .containsExactly(entry("MERRICK", d("1000.00")), entry("HOLLIS", d("3000.00")));
+        assertThat(year.allocations(d("4000.00"), AllocationBasis.BUSHELS))
+                .containsExactly(entry("MERRICK", d("3333.33")), entry("HOLLIS", d("666.67")));
+        assertThat(AllocationBasis.of("margin")).isSameAs(AllocationBasis.MARGIN);
+    }
+
+    @Test
+    void aMemberWhoseMarginWentNegativeWeighsNothing() {
+        PatronageYear year =
+                aYear(aLine().charges(d("-200.00")), aLine().partyCode("HOLLIS").charges(d("500.00")));
+        assertThat(year.allocations(d("100.00"), AllocationBasis.MARGIN))
+                .containsExactly(entry("MERRICK", d("0.00")), entry("HOLLIS", d("100.00")));
+    }
+
+    @Test
+    void aQualifiedRefundPaysAtLeastAFifthInCash() {
+        PatronageYear year =
+                aYear(aLine().bushels(d("75000")), aLine().partyCode("HOLLIS").bushels(d("25000")));
+        List<PatronageRefund> refunds =
+                year.refunds(d("40000.00"), AllocationBasis.BUSHELS, NoticeKind.QUALIFIED, d("20"));
+        assertThat(refunds).extracting(PatronageRefund::cash).containsExactly(d("6000.00"), d("2000.00"));
+        assertThat(refunds).extracting(PatronageRefund::retained).containsExactly(d("24000.00"), d("8000.00"));
+        assertThatThrownBy(() -> year.refunds(d("40000.00"), AllocationBasis.BUSHELS, NoticeKind.QUALIFIED, d("15")))
+                .isInstanceOf(PatronageError.class)
+                .hasMessageContaining("at least 20%");
+    }
+
+    @Test
+    void aNonqualifiedNoticeMayRetainEverything() {
+        PatronageRefund refund = PatronageRefund.of("MERRICK", NoticeKind.NONQUALIFIED, d("1234.56"), d("0"));
+        assertThat(refund.cash()).isEqualTo(d("0.00"));
+        assertThat(refund.retained()).isEqualTo(d("1234.56"));
+        assertThat(NoticeKind.of("nonqualified")).isSameAs(NoticeKind.NONQUALIFIED);
+    }
+
+    @Test
+    void anOddCentOfCashGoesOnTheCheque() {
+        PatronageRefund refund = PatronageRefund.of("MERRICK", NoticeKind.QUALIFIED, d("100.01"), d("20"));
+        assertThat(refund.cash()).isEqualTo(d("20.01"));
+        assertThat(refund.retained()).isEqualTo(d("80.00"));
+        assertThatThrownBy(() -> PatronageRefund.of("MERRICK", NoticeKind.QUALIFIED, d("100"), d("101")))
+                .isInstanceOf(PatronageError.class);
+        assertThatThrownBy(
+                        () -> new PatronageRefund("MERRICK", NoticeKind.QUALIFIED, d("100.00"), d("20.00"), d("79.00")))
+                .isInstanceOf(PatronageError.class);
+    }
+
+    @Test
     void thePageFitsEightyColumns() {
         PatronageLine.Builder[] lines = IntStream.range(0, 12)
                 .mapToObj(index -> aLine().partyCode(String.format("PRODUCER%02d", index))
