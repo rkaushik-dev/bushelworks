@@ -4,11 +4,13 @@ import static io.github.rkaushikdev.bushelworks.HouseLog.field;
 
 import io.github.rkaushikdev.bushelworks.ConflictError;
 import io.github.rkaushikdev.bushelworks.HouseLog;
+import io.github.rkaushikdev.bushelworks.Money;
 import io.github.rkaushikdev.bushelworks.domain.ledger.JournalEntry;
 import io.github.rkaushikdev.bushelworks.domain.ledger.Leg;
 import io.github.rkaushikdev.bushelworks.domain.ledger.Side;
 import io.github.rkaushikdev.bushelworks.domain.settlement.LineKind;
 import io.github.rkaushikdev.bushelworks.domain.settlement.Settlement;
+import io.github.rkaushikdev.bushelworks.domain.settlement.SettlementLine;
 import io.github.rkaushikdev.bushelworks.persistence.UnitOfWork;
 import io.github.rkaushikdev.bushelworks.persistence.models.JournalEntryRow;
 import io.github.rkaushikdev.bushelworks.persistence.models.PeriodRow;
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 
@@ -44,6 +47,19 @@ public final class Posting {
     private static final Logger LOG = HouseLog.getLogger("posting");
 
     private Posting() {}
+
+    /**
+     * What a leg says: the kind of line, and for a checkoff posted to its own commission's account,
+     * the levies it carries.
+     */
+    private static String legDescription(
+            LineKind kind, String account, PostingMap mapping, List<SettlementLine> lines) {
+        if (account.equals(mapping.accountFor(kind))) {
+            return kind.value();
+        }
+        return kind.value() + " "
+                + lines.stream().map(SettlementLine::code).distinct().sorted().collect(Collectors.joining(", "));
+    }
 
     /** One journal entry for one statement, posted on the settlement day through the standard map. */
     public static JournalEntry entryForSettlement(Settlement settlement, String number) {
@@ -72,10 +88,16 @@ public final class Posting {
         settlement.checkBalances();
         List<Leg> legs = new ArrayList<>();
         for (LineKind kind : LineKind.values()) {
-            BigDecimal subtotal = settlement.subtotal(kind);
-            if (subtotal.signum() != 0) {
-                legs.add(new Leg(mapping.accountFor(kind), mapping.sideFor(kind), subtotal, kind.value()));
-            }
+            Map<String, List<SettlementLine>> byAccount = settlement.ofKind(kind).stream()
+                    .collect(Collectors.groupingBy(mapping::accountFor, TreeMap::new, Collectors.toList()));
+            byAccount.forEach((account, lines) -> {
+                BigDecimal subtotal =
+                        Money.total(lines.stream().map(SettlementLine::dollars).toList());
+                if (subtotal.signum() != 0) {
+                    legs.add(new Leg(
+                            account, mapping.sideFor(kind), subtotal, legDescription(kind, account, mapping, lines)));
+                }
+            });
         }
 
         BigDecimal net = settlement.net();

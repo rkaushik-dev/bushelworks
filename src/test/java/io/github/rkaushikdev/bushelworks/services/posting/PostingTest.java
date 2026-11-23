@@ -133,6 +133,28 @@ class PostingTest {
         }
 
         @Test
+        void everyKindOfLineHasAnAccount() {
+            for (LineKind kind : LineKind.values()) {
+                assertThat(PostingMap.DEFAULT.accountFor(kind)).as(kind.value()).isNotBlank();
+            }
+            assertThat(PostingMap.DEFAULT.withDrying("4210").accountFor(LineKind.DRYING))
+                    .isEqualTo("4210");
+            assertThat(PostingMap.DEFAULT.withAdjustment("4410").accountFor(LineKind.ADJUSTMENT))
+                    .isEqualTo("4410");
+            assertThatThrownBy(() -> new PostingMap(Map.of(LineKind.GROSS, "1210"), "2100", Map.of()))
+                    .isInstanceOf(PostingError.class)
+                    .hasMessageContaining("no account for discount");
+        }
+
+        @Test
+        void aCheckoffWithItsOwnPayableLeavesTheRestOnTheSharedOne() {
+            PostingMap theirs = PostingMap.DEFAULT.withLevyAccount("KSCORN", "2210");
+            assertThat(theirs.levyAccounts()).containsEntry("KSCORN", "2210");
+            assertThat(theirs.accounts()).contains("2200", "2210");
+            assertThat(PostingMap.DEFAULT.levyAccounts()).isEmpty();
+        }
+
+        @Test
         void theAccountsComeBackSortedAndIncludeThePayable() {
             List<String> codes = PostingMap.DEFAULT.accounts();
             assertThat(codes).isSorted();
@@ -180,6 +202,23 @@ class PostingTest {
             assertThat(landed.get("4100")).isEqualByComparingTo("42.30");
             assertThat(landed.get("2200")).isEqualByComparingTo("4.35");
             assertThat(landed.get("1300")).isEqualByComparingTo("500.00");
+        }
+
+        @Test
+        void eachCommissionsCheckoffReachesItsOwnPayable() {
+            SettlementBuilder builder = new SettlementBuilder("S-2025-0009", MAY, "MERRICK", "HOME");
+            builder.addGross("GRAIN", "corn 1000 bu at 4.3500", d("1000"), d("4.3500"));
+            builder.addCharge(LineKind.ASSESSMENT, "KSCORN", "Kansas corn", d("10.00"));
+            builder.addCharge(LineKind.ASSESSMENT, "NECORN", "Nebraska corn", d("5.00"));
+            builder.addCharge(LineKind.ASSESSMENT, "NCB", "National corn", d("1.25"));
+            PostingMap theirs =
+                    PostingMap.DEFAULT.withLevyAccount("KSCORN", "2210").withLevyAccount("NECORN", "2220");
+            JournalEntry entry = Posting.entryForSettlement(builder.build(), "J-202505-0009", null, theirs, "");
+            assertThatCode(entry::checkBalances).doesNotThrowAnyException();
+            assertThat(entry.touching("2210")).extracting(Leg::dollars).containsExactly(d("10.00"));
+            assertThat(entry.touching("2220")).extracting(Leg::memo).containsExactly("assessment NECORN");
+            assertThat(entry.touching("2200")).extracting(Leg::memo).containsExactly("assessment");
+            assertThat(entry.touching("2200")).extracting(Leg::dollars).containsExactly(d("1.25"));
         }
 
         @Test
